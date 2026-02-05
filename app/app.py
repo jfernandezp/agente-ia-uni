@@ -28,8 +28,6 @@ DYNAMODB_REGION = os.getenv("DYNAMODB_REGION")
 MAX_IMAGENES_PER_DAY = os.getenv("MAX_IMAGENES_PER_DAY")
 BEDROCK_AI_MODELO = os.getenv("BEDROCK_AI_MODELO")
 
-MAX_IMAGENES = int(MAX_IMAGENES_PER_DAY)
-
 bedrock_client = boto3.client('bedrock-runtime', region_name=BEDROCK_REGION)  # Ajusta la región según sea necesario
 client = genai.Client(
     vertexai=True, project=PROJECT_VERTEX_AI, location=LOCATION_VERTEX_AI
@@ -51,7 +49,7 @@ def check_image_limit(client_ip):
         
         if 'Item' in response:
             images_generated_today = response['Item']['images_generated_today']
-            if images_generated_today >= MAX_IMAGENES:
+            if images_generated_today >= int(MAX_IMAGENES_PER_DAY):
                 return False  # Límite alcanzado, no se puede generar más imágenes
             else:
                 return True  # Puede generar más imágenes
@@ -79,7 +77,7 @@ def increment_image_count(client_ip):
         if 'Item' in response:
             # Si ya existe, incrementa el contador
             current_count = response['Item']['images_generated_today']
-            if current_count < MAX_IMAGENES:
+            if current_count < int(MAX_IMAGENES_PER_DAY):
                 table.update_item(
                     Key={'user_id': client_ip, 'date': today},
                     UpdateExpression="SET images_generated_today = :val",
