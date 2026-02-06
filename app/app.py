@@ -41,7 +41,6 @@ SCOPES = [
     'https://www.googleapis.com/auth/cloud-platform.read-only'
 ]
 
-print(st.secrets["GCP_SERVICE_ACCOUNT"])
 # Cargar credenciales
 if "GCP_SERVICE_ACCOUNT" in st.secrets:
     # En Streamlit Cloud
