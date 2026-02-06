@@ -13,29 +13,41 @@ from datetime import datetime
 import socket
 import requests
 from PIL import Image
-from dotenv import load_dotenv
 import sys
+import tomllib
+# from dotenv import load_dotenv
+# load_dotenv()
+file_path = 'secrets.toml'
+print(file_path)
+with open(file_path, 'rb') as f:
+    config_data = tomllib.load(f)
 
-load_dotenv()
+# GOOGLE_VERTEX_AI_MODELO = os.getenv("GOOGLE_VERTEX_AI_MODELO")
+# AWS_BEDROCK_REGION = os.getenv("AWS_BEDROCK_REGION")
+# GOOGLE_VERTEX_AI_LOCATION = os.getenv("GOOGLE_VERTEX_AI_LOCATION")
+# GOOGLE_VERTEX_AI_PROJECT = os.getenv("GOOGLE_VERTEX_AI_PROJECT")
+# GOOGLE_APPLICATION_CREDENTIALS = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+# AWS_DYNAMODB_REGION = os.getenv("AWS_DYNAMODB_REGION")
+# MAX_IMAGENES_PER_DAY = os.getenv("MAX_IMAGENES_PER_DAY")
+# AWS_BEDROCK_AI_MODELO = os.getenv("AWS_BEDROCK_AI_MODELO")
 
+GOOGLE_VERTEX_AI_MODELO = config_data['GOOGLE']['GOOGLE_VERTEX_AI_MODELO']
+GOOGLE_VERTEX_AI_LOCATION = config_data['GOOGLE']['GOOGLE_VERTEX_AI_LOCATION']
+GOOGLE_VERTEX_AI_PROJECT = config_data['GOOGLE']['GOOGLE_VERTEX_AI_PROJECT']
+GOOGLE_APPLICATION_CREDENTIALS = config_data['GOOGLE']['GOOGLE_APPLICATION_CREDENTIALS']
+AWS_BEDROCK_REGION = config_data['AWS']['AWS_BEDROCK_REGION']
+AWS_DYNAMODB_REGION = config_data['AWS']['AWS_DYNAMODB_REGION']
+AWS_BEDROCK_AI_MODELO = config_data['AWS']['AWS_BEDROCK_AI_MODELO']
+MAX_IMAGENES_PER_DAY = config_data['FEATURES']['MAX_IMAGENES_PER_DAY']
 
-VERTEX_AI_MODELO = os.getenv("VERTEX_AI_MODELO")
-BEDROCK_REGION = os.getenv("BEDROCK_REGION")
-LOCATION_VERTEX_AI = os.getenv("LOCATION_VERTEX_AI")
-PROJECT_VERTEX_AI = os.getenv("PROJECT_VERTEX_AI")
-GOOGLE_APPLICATION_CREDENTIALS = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-DYNAMODB_REGION = os.getenv("DYNAMODB_REGION")
-MAX_IMAGENES_PER_DAY = os.getenv("MAX_IMAGENES_PER_DAY")
-BEDROCK_AI_MODELO = os.getenv("BEDROCK_AI_MODELO")
-
-bedrock_client = boto3.client('bedrock-runtime', region_name=BEDROCK_REGION)  # Ajusta la región según sea necesario
+bedrock_client = boto3.client('bedrock-runtime', region_name=AWS_BEDROCK_REGION)  # Ajusta la región según sea necesario
 client = genai.Client(
-    vertexai=True, project=PROJECT_VERTEX_AI, location=LOCATION_VERTEX_AI
+    vertexai=True, project=GOOGLE_VERTEX_AI_PROJECT, location=GOOGLE_VERTEX_AI_LOCATION
 )
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = GOOGLE_APPLICATION_CREDENTIALS
 
 # Configura AWS DynamoDB
-dynamodb = boto3.resource('dynamodb', region_name=DYNAMODB_REGION)  # Ajusta la región según sea necesario
+dynamodb = boto3.resource('dynamodb', region_name=AWS_DYNAMODB_REGION)  # Ajusta la región según sea necesario
 table = dynamodb.Table('tbl_image_usage')
 
 # Función para verificar cuántas imágenes ha generado el cliente hoy
@@ -142,7 +154,7 @@ def get_ip_info(ip):
 def initialize_vertex_ai():
     """Inicializa la conexión con Vertex AI"""
     try:
-        return VERTEX_AI_MODELO
+        return GOOGLE_VERTEX_AI_MODELO
     except Exception as e:
         st.error(f"Error initializing Vertex AI: {str(e)}")
         return None
@@ -348,7 +360,7 @@ def get_image_download_link(img, filename):
 
 # Lógica para obtener la respuesta del modelo de Amazon Bedrock
 def get_bedrock_response(user_input):
-    model_id = BEDROCK_AI_MODELO #anthropic.claude-3-haiku-20240307-v1:0
+    model_id = AWS_BEDROCK_AI_MODELO #anthropic.claude-3-haiku-20240307-v1:0
     try:
         # Format the request payload using the model's native structure.
         native_request = {
@@ -386,6 +398,7 @@ def get_bedrock_response(user_input):
         return "I'm sorry, I can't answer at this time."
 
 def main_chat():
+    
     # Crear los botones tipo TAB
     #with st.spinner("Obteniendo IP..."):
     client_ip = get_client_ip()
