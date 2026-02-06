@@ -17,6 +17,10 @@ import sys
 from google.oauth2 import service_account
 from google.cloud import bigquery
 
+os.environ["AWS_ACCESS_KEY_ID"] = st.secrets["AWS_ACCESS_KEY_ID"]
+os.environ["AWS_SECRET_ACCESS_KEY"] = st.secrets["AWS_SECRET_ACCESS_KEY"]
+os.environ["AWS_REGION"] = st.secrets["AWS_REGION"]
+
 # GOOGLE_VERTEX_AI_MODELO = os.getenv("GOOGLE_VERTEX_AI_MODELO")
 # AWS_BEDROCK_REGION = os.getenv("AWS_BEDROCK_REGION")
 # GOOGLE_VERTEX_AI_LOCATION = os.getenv("GOOGLE_VERTEX_AI_LOCATION")
