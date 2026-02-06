@@ -65,7 +65,8 @@ SCOPES = [
 #     )
 
 def cargar_credenciales_gcp(scope):
-    b64 = os.environ["GCP_SERVICE_ACCOUNT_B64"]
+    b64 = st.secrets["GCP_SERVICE_ACCOUNT_B64"]
+    print(b64)
     info = json.loads(base64.b64decode(b64).decode("utf-8"))
     return service_account.Credentials.from_service_account_info(
         info,
