@@ -63,8 +63,8 @@ MAX_IMAGENES_PER_DAY = st.secrets['FEATURES']['MAX_IMAGENES_PER_DAY']
 #         st.secrets["GCP_SERVICE_ACCOUNT"],
 #         scopes=SCOPES
 #     )
-print (GOOGLE_APPLICATION_CREDENTIALS)
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = GOOGLE_APPLICATION_CREDENTIALS
+#print (GOOGLE_APPLICATION_CREDENTIALS)
+#os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = GOOGLE_APPLICATION_CREDENTIALS
     # Inicializar Vertex AI
 client_vertex_ai = genai.Client(
     vertexai=True, 
