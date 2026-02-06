@@ -46,26 +46,36 @@ SCOPES = [
 ]
 
 #Cargar credenciales
-if "GCP_SERVICE_ACCOUNT" in st.secrets:
-    # En Streamlit Cloud
-    print("PRD")
-    credentials = service_account.Credentials.from_service_account_info(
-        st.secrets["GCP_SERVICE_ACCOUNT"],
-        scopes=SCOPES
-    )
-    #client_vertex_ai = bigquery.DocumentProcessorServiceClient(credentials=credentials)
-    print(credentials)
-else:
-    # En local
-    print("DEV")
+# if "GCP_SERVICE_ACCOUNT" in st.secrets:
+#     # En Streamlit Cloud
+#     print("PRD")
+#     credentials = service_account.Credentials.from_service_account_info(
+#         st.secrets["GCP_SERVICE_ACCOUNT"],
+#         scopes=SCOPES
+#     )
+#     #client_vertex_ai = bigquery.DocumentProcessorServiceClient(credentials=credentials)
+#     print(credentials)
+# else:
+#     # En local
+#     print("DEV")
 
-    credentials = service_account.Credentials.from_service_account_info(
-        st.secrets["GCP_SERVICE_ACCOUNT"],
-        scopes=SCOPES
+#     credentials = service_account.Credentials.from_service_account_info(
+#         st.secrets["GCP_SERVICE_ACCOUNT"],
+#         scopes=SCOPES
+#     )
+
+def cargar_credenciales_gcp(scope):
+    b64 = os.environ["GCP_SERVICE_ACCOUNT_B64"]
+    info = json.loads(base64.b64decode(b64).decode("utf-8"))
+    return service_account.Credentials.from_service_account_info(
+        info,
+        scopes=scope
     )
+    
 #print (GOOGLE_APPLICATION_CREDENTIALS)
 #os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = GOOGLE_APPLICATION_CREDENTIALS
     # Inicializar Vertex AI
+credentials = cargar_credenciales_gcp(SCOPES)
 client_vertex_ai = genai.Client(
     vertexai=True, 
     project=GOOGLE_VERTEX_AI_PROJECT, 
