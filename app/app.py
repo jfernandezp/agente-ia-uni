@@ -14,13 +14,8 @@ import socket
 import requests
 from PIL import Image
 import sys
-import tomllib
-# from dotenv import load_dotenv
-# load_dotenv()
-file_path = 'secrets.toml'
-print(file_path)
-with open(file_path, 'rb') as f:
-    config_data = tomllib.load(f)
+from google.oauth2 import service_account
+from google.cloud import bigquery
 
 # GOOGLE_VERTEX_AI_MODELO = os.getenv("GOOGLE_VERTEX_AI_MODELO")
 # AWS_BEDROCK_REGION = os.getenv("AWS_BEDROCK_REGION")
@@ -31,21 +26,48 @@ with open(file_path, 'rb') as f:
 # MAX_IMAGENES_PER_DAY = os.getenv("MAX_IMAGENES_PER_DAY")
 # AWS_BEDROCK_AI_MODELO = os.getenv("AWS_BEDROCK_AI_MODELO")
 
-GOOGLE_VERTEX_AI_MODELO = config_data['GOOGLE']['GOOGLE_VERTEX_AI_MODELO']
-GOOGLE_VERTEX_AI_LOCATION = config_data['GOOGLE']['GOOGLE_VERTEX_AI_LOCATION']
-GOOGLE_VERTEX_AI_PROJECT = config_data['GOOGLE']['GOOGLE_VERTEX_AI_PROJECT']
-GOOGLE_APPLICATION_CREDENTIALS = config_data['GOOGLE']['GOOGLE_APPLICATION_CREDENTIALS']
-AWS_BEDROCK_REGION = config_data['AWS']['AWS_BEDROCK_REGION']
-AWS_DYNAMODB_REGION = config_data['AWS']['AWS_DYNAMODB_REGION']
-AWS_BEDROCK_AI_MODELO = config_data['AWS']['AWS_BEDROCK_AI_MODELO']
-MAX_IMAGENES_PER_DAY = config_data['FEATURES']['MAX_IMAGENES_PER_DAY']
+GOOGLE_VERTEX_AI_MODELO = st.secrets['GOOGLE']['GOOGLE_VERTEX_AI_MODELO']
+GOOGLE_VERTEX_AI_LOCATION = st.secrets['GOOGLE']['GOOGLE_VERTEX_AI_LOCATION']
+GOOGLE_VERTEX_AI_PROJECT = st.secrets['GOOGLE']['GOOGLE_VERTEX_AI_PROJECT']
+GOOGLE_APPLICATION_CREDENTIALS = st.secrets['GOOGLE']['GOOGLE_APPLICATION_CREDENTIALS']
+AWS_BEDROCK_REGION = st.secrets['AWS']['AWS_BEDROCK_REGION']
+AWS_DYNAMODB_REGION = st.secrets['AWS']['AWS_DYNAMODB_REGION']
+AWS_BEDROCK_AI_MODELO = st.secrets['AWS']['AWS_BEDROCK_AI_MODELO']
+MAX_IMAGENES_PER_DAY = st.secrets['FEATURES']['MAX_IMAGENES_PER_DAY']
+
+# Definir los scopes necesarios para Vertex AI
+SCOPES = [
+    'https://www.googleapis.com/auth/cloud-platform',
+    'https://www.googleapis.com/auth/cloud-platform.read-only'
+]
+
+print(st.secrets["GCP_SERVICE_ACCOUNT"])
+# Cargar credenciales
+if "GCP_SERVICE_ACCOUNT" in st.secrets:
+    # En Streamlit Cloud
+    print("PRD")
+    credentials = service_account.Credentials.from_service_account_info(
+        st.secrets["GCP_SERVICE_ACCOUNT"],
+        scopes=SCOPES
+    )
+    #client_vertex_ai = bigquery.DocumentProcessorServiceClient(credentials=credentials)
+    print(credentials)
+else:
+    # En local
+    print("DEV")
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = GOOGLE_APPLICATION_CREDENTIALS
+    credentials = service_account.Credentials.from_service_account_file(
+        'credenciales\generate-image-485916-b3f3e4a7e693.json'
+    )
+    # Inicializar Vertex AI
+client_vertex_ai = genai.Client(
+    vertexai=True, 
+    project=st.secrets.get("GCP_SERVICE_ACCOUNT", {}).get("project_id", "tu-proyecto"), 
+    location=GOOGLE_VERTEX_AI_LOCATION,
+    credentials=credentials
+)
 
 bedrock_client = boto3.client('bedrock-runtime', region_name=AWS_BEDROCK_REGION)  # Ajusta la región según sea necesario
-client = genai.Client(
-    vertexai=True, project=GOOGLE_VERTEX_AI_PROJECT, location=GOOGLE_VERTEX_AI_LOCATION
-)
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = GOOGLE_APPLICATION_CREDENTIALS
-
 # Configura AWS DynamoDB
 dynamodb = boto3.resource('dynamodb', region_name=AWS_DYNAMODB_REGION)  # Ajusta la región según sea necesario
 table = dynamodb.Table('tbl_image_usage')
@@ -302,7 +324,7 @@ def generate_image_from_text(model, prompt):
     """Genera imágenes usando Vertex AI"""
     try:
         with st.spinner("Generando imágenes... ✨"):
-            response = client.models.generate_content(
+            response = client_vertex_ai.models.generate_content(
                 model=model,
                 contents=prompt,
                 config=types.GenerateContentConfig(
