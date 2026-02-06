@@ -40,29 +40,29 @@ AWS_BEDROCK_AI_MODELO = st.secrets['AWS']['AWS_BEDROCK_AI_MODELO']
 MAX_IMAGENES_PER_DAY = st.secrets['FEATURES']['MAX_IMAGENES_PER_DAY']
 
 # Definir los scopes necesarios para Vertex AI
-# SCOPES = [
-#     'https://www.googleapis.com/auth/cloud-platform',
-#     'https://www.googleapis.com/auth/cloud-platform.read-only'
-# ]
+SCOPES = [
+    'https://www.googleapis.com/auth/cloud-platform',
+    'https://www.googleapis.com/auth/cloud-platform.read-only'
+]
 
-# Cargar credenciales
-# if "GCP_SERVICE_ACCOUNT" in st.secrets:
-#     # En Streamlit Cloud
-#     print("PRD")
-#     credentials = service_account.Credentials.from_service_account_info(
-#         st.secrets["GCP_SERVICE_ACCOUNT"],
-#         scopes=SCOPES
-#     )
-#     #client_vertex_ai = bigquery.DocumentProcessorServiceClient(credentials=credentials)
-#     print(credentials)
-# else:
-#     # En local
-#     print("DEV")
-    
-#     credentials = service_account.Credentials.from_service_account_info(
-#         st.secrets["GCP_SERVICE_ACCOUNT"],
-#         scopes=SCOPES
-#     )
+#Cargar credenciales
+if "GCP_SERVICE_ACCOUNT" in st.secrets:
+    # En Streamlit Cloud
+    print("PRD")
+    credentials = service_account.Credentials.from_service_account_info(
+        st.secrets["GCP_SERVICE_ACCOUNT"],
+        scopes=SCOPES
+    )
+    #client_vertex_ai = bigquery.DocumentProcessorServiceClient(credentials=credentials)
+    print(credentials)
+else:
+    # En local
+    print("DEV")
+
+    credentials = service_account.Credentials.from_service_account_info(
+        st.secrets["GCP_SERVICE_ACCOUNT"],
+        scopes=SCOPES
+    )
 #print (GOOGLE_APPLICATION_CREDENTIALS)
 #os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = GOOGLE_APPLICATION_CREDENTIALS
     # Inicializar Vertex AI
@@ -70,7 +70,7 @@ client_vertex_ai = genai.Client(
     vertexai=True, 
     project=GOOGLE_VERTEX_AI_PROJECT, 
     location=GOOGLE_VERTEX_AI_LOCATION
-    #,credentials=credentials
+    ,credentials=credentials
 )
 
 bedrock_client = boto3.client('bedrock-runtime', region_name=AWS_BEDROCK_REGION)  # Ajusta la región según sea necesario
