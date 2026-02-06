@@ -36,10 +36,10 @@ AWS_BEDROCK_AI_MODELO = st.secrets['AWS']['AWS_BEDROCK_AI_MODELO']
 MAX_IMAGENES_PER_DAY = st.secrets['FEATURES']['MAX_IMAGENES_PER_DAY']
 
 # Definir los scopes necesarios para Vertex AI
-SCOPES = [
-    'https://www.googleapis.com/auth/cloud-platform',
-    'https://www.googleapis.com/auth/cloud-platform.read-only'
-]
+# SCOPES = [
+#     'https://www.googleapis.com/auth/cloud-platform',
+#     'https://www.googleapis.com/auth/cloud-platform.read-only'
+# ]
 
 # Cargar credenciales
 # if "GCP_SERVICE_ACCOUNT" in st.secrets:
