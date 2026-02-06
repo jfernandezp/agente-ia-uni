@@ -55,7 +55,7 @@ if "GCP_SERVICE_ACCOUNT" in st.secrets:
 else:
     # En local
     print("DEV")
-    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = GOOGLE_APPLICATION_CREDENTIALS
+    #os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = GOOGLE_APPLICATION_CREDENTIALS
     credentials = service_account.Credentials.from_service_account_file(
         'credenciales\generate-image-485916-b3f3e4a7e693.json'
     )
