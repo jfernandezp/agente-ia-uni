@@ -21,15 +21,6 @@ os.environ["AWS_ACCESS_KEY_ID"] = st.secrets["AWS_ACCESS_KEY_ID"]
 os.environ["AWS_SECRET_ACCESS_KEY"] = st.secrets["AWS_SECRET_ACCESS_KEY"]
 os.environ["AWS_REGION"] = st.secrets["AWS_REGION"]
 
-# GOOGLE_VERTEX_AI_MODELO = os.getenv("GOOGLE_VERTEX_AI_MODELO")
-# AWS_BEDROCK_REGION = os.getenv("AWS_BEDROCK_REGION")
-# GOOGLE_VERTEX_AI_LOCATION = os.getenv("GOOGLE_VERTEX_AI_LOCATION")
-# GOOGLE_VERTEX_AI_PROJECT = os.getenv("GOOGLE_VERTEX_AI_PROJECT")
-# GOOGLE_APPLICATION_CREDENTIALS = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-# AWS_DYNAMODB_REGION = os.getenv("AWS_DYNAMODB_REGION")
-# MAX_IMAGENES_PER_DAY = os.getenv("MAX_IMAGENES_PER_DAY")
-# AWS_BEDROCK_AI_MODELO = os.getenv("AWS_BEDROCK_AI_MODELO")
-
 GOOGLE_VERTEX_AI_MODELO = st.secrets['GOOGLE']['GOOGLE_VERTEX_AI_MODELO']
 GOOGLE_VERTEX_AI_LOCATION = st.secrets['GOOGLE']['GOOGLE_VERTEX_AI_LOCATION']
 GOOGLE_VERTEX_AI_PROJECT = st.secrets['GOOGLE']['GOOGLE_VERTEX_AI_PROJECT']
@@ -46,25 +37,6 @@ SCOPES = [
     'https://www.googleapis.com/auth/cloud-platform.read-only'
 ]
 
-#Cargar credenciales
-# if "GCP_SERVICE_ACCOUNT" in st.secrets:
-#     # En Streamlit Cloud
-#     print("PRD")
-#     credentials = service_account.Credentials.from_service_account_info(
-#         st.secrets["GCP_SERVICE_ACCOUNT"],
-#         scopes=SCOPES
-#     )
-#     #client_vertex_ai = bigquery.DocumentProcessorServiceClient(credentials=credentials)
-#     print(credentials)
-# else:
-#     # En local
-#     print("DEV")
-
-#     credentials = service_account.Credentials.from_service_account_info(
-#         st.secrets["GCP_SERVICE_ACCOUNT"],
-#         scopes=SCOPES
-#     )
-
 def cargar_credenciales_gcp(scope):
     b64 = GCP_SERVICE_ACCOUNT_B64
     print(b64)
@@ -74,9 +46,7 @@ def cargar_credenciales_gcp(scope):
         scopes=scope
     )
     
-#print (GOOGLE_APPLICATION_CREDENTIALS)
-#os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = GOOGLE_APPLICATION_CREDENTIALS
-    # Inicializar Vertex AI
+# Inicializar Vertex AI
 credentials = cargar_credenciales_gcp(SCOPES)
 client_vertex_ai = genai.Client(
     vertexai=True, 
@@ -440,7 +410,6 @@ def get_bedrock_response(user_input):
 def main_chat():
     
     # Crear los botones tipo TAB
-    #with st.spinner("Obteniendo IP..."):
     client_ip = get_client_ip()
     #with st.sidebar:
     st.sidebar.image("images/image.png", width=200)
@@ -456,7 +425,7 @@ def main_chat():
     
     option = st.sidebar.radio("Select an option", ("AI Chatbot", "Image Generator"))
         
-    #st.markdown("---")
+    st.markdown("---")
     if option == "AI Chatbot":
         chatbot_page()  # Redirige al chatbot
     elif option == "Image Generator":
