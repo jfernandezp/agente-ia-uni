@@ -16,6 +16,8 @@ from PIL import Image
 import sys
 from google.oauth2 import service_account
 from google.cloud import bigquery
+import re
+
 
 os.environ["AWS_ACCESS_KEY_ID"] = st.secrets["AWS_ACCESS_KEY_ID"]
 os.environ["AWS_SECRET_ACCESS_KEY"] = st.secrets["AWS_SECRET_ACCESS_KEY"]
@@ -29,33 +31,34 @@ AWS_BEDROCK_REGION = st.secrets['AWS']['AWS_BEDROCK_REGION']
 AWS_DYNAMODB_REGION = st.secrets['AWS']['AWS_DYNAMODB_REGION']
 AWS_BEDROCK_AI_MODELO = st.secrets['AWS']['AWS_BEDROCK_AI_MODELO']
 MAX_IMAGENES_PER_DAY = st.secrets['FEATURES']['MAX_IMAGENES_PER_DAY']
-GCP_SERVICE_ACCOUNT_B64 = st.secrets['GCP_SERVICE_ACCOUNT']['GCP_SERVICE_ACCOUNT_B64']
-
-# Definir los scopes necesarios para Vertex AI
-SCOPES = [
-    'https://www.googleapis.com/auth/cloud-platform',
-    'https://www.googleapis.com/auth/cloud-platform.read-only'
-]
-
-def cargar_credenciales_gcp(scope):
-    b64 = GCP_SERVICE_ACCOUNT_B64
-    print(b64)
-    info = json.loads(base64.b64decode(b64).decode("utf-8"))
-    return service_account.Credentials.from_service_account_info(
-        info,
-        scopes=scope
-    )
-    
-# Inicializar Vertex AI
-credentials = cargar_credenciales_gcp(SCOPES)
-client_vertex_ai = genai.Client(
-    vertexai=True, 
-    project=GOOGLE_VERTEX_AI_PROJECT, 
-    location=GOOGLE_VERTEX_AI_LOCATION
-    ,credentials=credentials
-)
+#GCP_SERVICE_ACCOUNT_B64 = st.secrets['GCP_SERVICE_ACCOUNT']['GCP_SERVICE_ACCOUNT_B64']
+AWS_BEDROCK_AI_MODELO_TITAN = st.secrets['AWS']['AWS_BEDROCK_AI_MODELO_TITAN']
 
 bedrock_client = boto3.client('bedrock-runtime', region_name=AWS_BEDROCK_REGION)  # Ajusta la región según sea necesario
+# Definir los scopes necesarios para Vertex AI
+# SCOPES = [
+#     'https://www.googleapis.com/auth/cloud-platform',
+#     'https://www.googleapis.com/auth/cloud-platform.read-only'
+# ]
+
+# def cargar_credenciales_gcp(scope):
+#     b64 = GCP_SERVICE_ACCOUNT_B64
+#     info = json.loads(base64.b64decode(b64).decode("utf-8"))
+#     return service_account.Credentials.from_service_account_info(
+#         info,
+#         scopes=scope
+#     )
+    
+# # Inicializar Vertex AI
+# credentials = cargar_credenciales_gcp(SCOPES)
+# client_vertex_ai = genai.Client(
+#     vertexai=True, 
+#     project=GOOGLE_VERTEX_AI_PROJECT, 
+#     location=GOOGLE_VERTEX_AI_LOCATION
+#     ,credentials=credentials
+# )
+
+
 # Configura AWS DynamoDB
 dynamodb = boto3.resource('dynamodb', region_name=AWS_DYNAMODB_REGION)  # Ajusta la región según sea necesario
 table = dynamodb.Table('tbl_image_usage')
@@ -151,7 +154,7 @@ def get_client_ip():
 def get_ip_info(ip):
     """Obtiene información geográfica de la IP"""
     try:
-        if ip and ip != "No disponible" and not ip.startswith("127.") and not ip.startswith("192.168."):
+        if ip and ip is not "No disponible" and not ip.startswith("127.") and not ip.startswith("192.168."):
             response = requests.get(f'https://ipapi.co/{ip}/json/', timeout=3)
             if response.status_code == 200:
                 return response.json()
@@ -164,7 +167,7 @@ def get_ip_info(ip):
 def initialize_vertex_ai():
     """Inicializa la conexión con Vertex AI"""
     try:
-        return GOOGLE_VERTEX_AI_MODELO
+        return AWS_BEDROCK_AI_MODELO_TITAN
     except Exception as e:
         st.error(f"Error initializing Vertex AI: {str(e)}")
         return None
@@ -226,8 +229,93 @@ def chatbot_page():
             st.error(f"Error generating response: {str(e)}")
             st.info("Verify that your AWS API key credentials are configured correctly.")
 
-# Función para mostrar la página de generación de imágenes
+
+# ----------------------------
+# Streamlit page
+# ----------------------------
 def image_generation_page(client_ip):
+
+    st.title("Image Generator from Text")
+    
+    model = initialize_vertex_ai()
+    
+    if "images" not in st.session_state:
+        st.session_state.images = bytes()
+    
+    if "text_content" not in st.session_state:
+        st.session_state.text_content = ""
+        
+    # Create two columns with equal width
+    col1, col2 = st.columns([3,1])
+    
+    try:
+        if len(st.session_state.images) > 0:
+            with col1:
+                img_bytes = st.session_state.images
+                st.text_area("📝 Describe the image you want to generate...", st.session_state.text_content, height=100)
+                st.image(img_bytes, caption="Image", width='stretch')
+                ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+                st.download_button(
+                    label=f"Download image",
+                    data=img_bytes,
+                    file_name=f"imagen_{ts}.png",
+                    mime="image/png",
+                )
+        else:
+            with col1:
+                prompt = st.text_area(
+                "📝 Describe the image you want to generate...",
+                height=100,
+                placeholder="Example: An astronaut cat floating in space, art nouveau style, vibrant colors, high quality.",
+                
+                )
+                if st.button("Generate Image"):
+                    if check_image_limit(client_ip):
+                        if prompt:
+                            #image = generate_image_from_text(model, prompt)
+                            text_out, images_out = generate_image_from_text(model, prompt)
+                            
+                            if text_out:
+                                st.markdown(text_out)
+                                
+                            if not images_out:
+                                    st.warning("No image appeared. Write a message explicitly requesting an image.")
+                            else:
+                                #for idx, img_bytes in enumerate(images_out, start=1):
+                                st.image(images_out, caption=f"Resultado", width='stretch')
+
+                                # Botón de descarga
+                                ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+                                st.download_button(
+                                    label=f"Download image",
+                                    data=images_out,
+                                    file_name=f"imagen_{ts}.png",
+                                    mime="image/png",
+                                )
+                                increment_image_count(client_ip)
+                            # st.session_state.images.append(
+                            #     {"role": "assistant", "text": text_out, "imagenes": images_out}
+                            # )
+                            st.session_state.images = images_out
+                            st.session_state.text_content = prompt
+                        else:
+                            st.error("Enter a description to generate the image.")
+                    else:
+                        st.info("You've reached today's image limit. Please try again tomorrow.")
+    except Exception as e:
+        exc_type, exc_obj, tb = sys.exc_info()
+        line_number = tb.tb_lineno
+        st.markdown(f"Error:  {str(e)}; line_number: {line_number }")
+
+    with col2:
+        if st.button("New Image"):
+            st.session_state.images = bytes()
+            st.session_state.text_content = ""
+            st.rerun()
+            
+            
+# Función para mostrar la página de generación de imágenes
+def image_generation_page1(client_ip):
 
     st.title("Image Generator from Text")
     
@@ -306,58 +394,116 @@ def image_generation_page(client_ip):
             st.session_state.images = bytes()
             st.session_state.text_content = ""
             st.rerun()
-     
-def generate_image_from_text(model, prompt):
-    
-    """Genera imágenes usando Vertex AI"""
+
+# ----------------------------
+# Bedrock Stable Diffusion (SDXL) text-to-image
+# ----------------------------
+def generate_image_from_text(modelo, prompt):
+    """
+    Devuelve: (text_out, images_out)
+    - text_out: str (SDXL normalmente no retorna texto; se deja vacío para compatibilidad)
+    - images_out: list[bytes] (PNG bytes)
+    """
     try:
-        with st.spinner("Generando imágenes... ✨"):
-            response = client_vertex_ai.models.generate_content(
-                model=model,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    response_modalities=["IMAGE"],
-                ),
-            )
+        with st.spinner("Generando imagen... ✨"):
+            # model_id = AWS_BEDROCK_AI_MODELO_STABILITY  # Bedrock modelId :contentReference[oaicite:1]{index=1}
+            # if seed is None:
+            #     seed = random.randint(0, 4294967295)  # rango típico :contentReference[oaicite:2]{index=2}
+
+            # # Payload nativo de SDXL en Bedrock :contentReference[oaicite:3]{index=3}
+            # text_prompts = [{"text": prompt}]
+            # if negative_prompt:
+            #     text_prompts.append({"text": negative_prompt, "weight": -1})
+
+            # native_request = {
+            #     "text_prompts": text_prompts,
+            #     "seed": seed,
+            #     "cfg_scale": cfg_scale,
+            #     "steps": steps,
+            # }
+            # if style_preset:
+            #     native_request["style_preset"] = style_preset
+
+            # response = bedrock_client.invoke_model(
+            #     modelId=model_id,
+            #     body=json.dumps(native_request),
+            #     contentType="application/json",
+            #     accept="application/json",
+            # )
+
+            # model_response = json.loads(response["body"].read())
+
+            # images_out: list[bytes] = []
+            # for art in model_response.get("artifacts", []):
+            #     b64 = art.get("base64")
+            #     if b64:
+            #         images_out.append(base64.b64decode(b64))
+
+            # return "", images_out
             
-            text_out = ""
-            images_out: list[bytes] = []
+            payload = {
+                "taskType": "TEXT_IMAGE",
+                "textToImageParams": {
+                    "text": str(prompt)
+                },
+                "imageGenerationConfig": {
+                    "numberOfImages": 1,
+                    "height": 1024,
+                    "width": 1024,
+                    "cfgScale": 8,
+                    "seed": 12345,
+                    "quality": "standard"
+                }
+            }
 
-            for part in response.candidates[0].content.parts:
-                if getattr(part, "text", None):
-                    text_out += part.text
-                elif getattr(part, "inline_data", None) and getattr(part.inline_data, "data", None):
-                    images_out.append(part.inline_data.data)
+            response = bedrock_client.invoke_model(
+                modelId=modelo,
+                contentType="application/json",
+                accept="application/json",
+                body=json.dumps(payload),
+            )
 
-            return text_out.strip(), images_out
+            data = json.loads(response["body"].read())
+
+            # Titan devuelve base64 dentro de images[0] (string)
+            img_b64 = data["images"][0]
+            images_out = base64.b64decode(img_b64)
+            
+            return "", images_out
     except Exception as e:
+        exc_type, exc_obj, tb = sys.exc_info()
+        line_number = tb.tb_lineno
         st.error(f"Error generating images: {str(e)}")
-        return None
+        st.markdown(f"Error:  {str(e)}; line_number: {line_number }")
+        return "", []
+    
+    
+# def generate_image_from_text1(model, prompt):
+    
+#     """Genera imágenes usando Vertex AI"""
+#     try:
+#         with st.spinner("Generando imágenes... ✨"):
+#             response = client_vertex_ai.models.generate_content(
+#                 model=model,
+#                 contents=prompt,
+#                 config=types.GenerateContentConfig(
+#                     response_modalities=["IMAGE"],
+#                 ),
+#             )
+            
+#             text_out = ""
+#             images_out: list[bytes] = []
 
-def bytes_to_png(image_bytes: bytes, output_filename: str):
-    """
-    Converts a bytes object to a PNG file using the Pillow library.
+#             for part in response.candidates[0].content.parts:
+#                 if getattr(part, "text", None):
+#                     text_out += part.text
+#                 elif getattr(part, "inline_data", None) and getattr(part.inline_data, "data", None):
+#                     images_out.append(part.inline_data.data)
 
-    Args:
-        image_bytes: The input image data as a bytes object.
-        output_filename: The name of the output PNG file (e.g., "output.png").
-    """
-    try:
-        # Use io.BytesIO to treat the bytes object as a file
-        image_stream = io.BytesIO(image_bytes)
-        
-        # Open the image from the stream using Pillow
-        # Pillow automatically identifies the image format from the bytes
-        img = Image.open(image_stream)
-        
-        # Save the image object as a PNG file
-        img.save(output_filename, format="PNG")
-        print(f"Image successfully saved as {output_filename}")
-
-    except IOError as e:
-        print(f"Error: Could not identify image file or save it. {e}")
-    except Exception as e:
-        print(f"An unexpected error occurred: {e}")
+#             return text_out.strip(), images_out
+#     except Exception as e:
+#         st.error(f"Error generating images: {str(e)}")
+#         return None
 
 # Función para convertir imagen a bytes para descargar
 def get_image_download_link(img, filename):
@@ -370,43 +516,97 @@ def get_image_download_link(img, filename):
 
 # Lógica para obtener la respuesta del modelo de Amazon Bedrock
 def get_bedrock_response(user_input):
-    model_id = AWS_BEDROCK_AI_MODELO #anthropic.claude-3-haiku-20240307-v1:0
+    # model_id = AWS_BEDROCK_AI_MODELO #anthropic.claude-3-haiku-20240307-v1:0
+    # try:
+    #     # Format the request payload using the model's native structure.
+    #     native_request = {
+    #         "anthropic_version": "bedrock-2023-05-31",
+    #         "max_tokens": 512,
+    #         "temperature": 0.7,
+    #         "top_p": 0.6,
+    #         "messages": [
+    #             {
+    #                 "role": "user",
+    #                 "content": [{"type": "text", "text": user_input}],
+    #             }
+    #         ],
+    #     }
+        
+    #     # Convert the native request to JSON.
+    #     request = json.dumps(native_request)
+    #     print("Request body:", request)
+        
+    #     response = bedrock_client.invoke_model(
+    #         modelId=model_id, 
+    #         body=request,
+    #         contentType='application/json'
+    #     )
+    #     # Decode the response body.
+    #     model_response = json.loads(response["body"].read())
+
+    #     # Extract and print the response text.
+    #     response_text = model_response["content"][0]["text"]
+    #     print(response_text)
+
+    #     return response_text
+    
+    # Use the API to send a text message to DeepSeek-R1.
+    
     try:
-        # Format the request payload using the model's native structure.
-        native_request = {
-            "anthropic_version": "bedrock-2023-05-31",
+        # Create a Bedrock Runtime client in the AWS Region of your choice.
+        client = boto3.client("bedrock-runtime", region_name="us-east-1")
+
+        # Set the cross Region inference profile ID for DeepSeek-R1
+        #model_id = "us.deepseek.r1-v1:0"
+
+        # Define the prompt for the model.
+        #prompt = "Describe the purpose of a 'hello world' program in one line."
+      
+        # Embed the prompt in DeepSeek-R1's instruction format.
+        formatted_prompt = f"""
+        <｜begin▁of▁sentence｜><｜User｜>{user_input}<｜Assistant｜>
+        """
+
+        body = json.dumps({
+            "prompt": formatted_prompt,
             "max_tokens": 512,
-            "temperature": 0.7,
-            "top_p": 0.6,
-            "messages": [
-                {
-                    "role": "user",
-                    "content": [{"type": "text", "text": user_input}],
-                }
-            ],
-        }
-        
-        # Convert the native request to JSON.
-        request = json.dumps(native_request)
-        print("Request body:", request)
-        
-        response = bedrock_client.invoke_model(
-            modelId=model_id, 
-            body=request,
-            contentType='application/json'
-        )
-        # Decode the response body.
+            "temperature": 0.5,
+            "top_p": 0.9,
+        })
+        # Invoke the model with the request.
+        response = client.invoke_model(modelId=AWS_BEDROCK_AI_MODELO, body=body)
+
+        # Read the response body.
         model_response = json.loads(response["body"].read())
-
-        # Extract and print the response text.
-        response_text = model_response["content"][0]["text"]
-        print(response_text)
-
+        
+        # Extract choices.
+        choices = model_response["choices"]
+        response = ""
+        if len(choices) > 0:
+            response = choices[0]['text'].replace("</think>", "")
+        response_text = remove_thinking_tags(response)
         return response_text
+        # # Print choices.
+        # for index, choice in enumerate(choices):
+        #     print(choice['text'])
+        #     response = "".join(choice['text'])
+        #     response = response.replace("</think>", "")
+        #     print(response)
+        
     except Exception as e:
-        st.error(f"Error getting response: {e}")
+        exc_type, exc_obj, tb = sys.exc_info()
+        line_number = tb.tb_lineno
+        st.error(f"ERROR: Can't invoke '{AWS_BEDROCK_AI_MODELO}'. Reason: {e}")
+        st.markdown(f"Error:  {str(e)}; line_number: {line_number }")
         return "I'm sorry, I can't answer at this time."
 
+def remove_thinking_tags(response_content):
+    
+    """Removes the <think>...</think> block from the response string."""
+    regex_pattern = r'<think>[\s\S]*?<\/think>\n*\n*'
+    cleaned_content = re.sub(regex_pattern, '', response_content)
+    return cleaned_content
+        
 def main_chat():
     
     # Crear los botones tipo TAB
@@ -416,7 +616,7 @@ def main_chat():
     st.sidebar.info(f"**IP:** `{client_ip}`")
     
     # Mostrar información geográfica si está disponible
-    if client_ip and client_ip != "No disponible":
+    if client_ip and client_ip is not "No disponible":
         ip_info = get_ip_info(client_ip)
         if ip_info:
             st.sidebar.caption(f"📍 {ip_info.get('city', '')}, {ip_info.get('country_name', '')}")
@@ -425,11 +625,13 @@ def main_chat():
     
     option = st.sidebar.radio("Select an option", ("AI Chatbot", "Image Generator"))
         
-    st.markdown("---")
+    #st.markdown("---")
     if option == "AI Chatbot":
         chatbot_page()  # Redirige al chatbot
     elif option == "Image Generator":
         image_generation_page(client_ip)  # Redirige a la página de imágenes
+
+
 
 if __name__ == '__main__':
     main_chat()
