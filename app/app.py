@@ -155,7 +155,7 @@ def get_client_ip():
 def get_ip_info(ip):
     """Obtiene información geográfica de la IP"""
     try:
-        if ip and ip is not "No disponible" and not ip.startswith("127.") and not ip.startswith("192.168."):
+        if ip and ip != "No disponible" and not ip.startswith("127.") and not ip.startswith("192.168."):
             response = requests.get(f'https://ipapi.co/{ip}/json/', timeout=3)
             if response.status_code == 200:
                 return response.json()
@@ -195,7 +195,7 @@ def chatbot_page():
             role = "assistant" if isinstance(msg, AIMessage) else "user"
             with st.chat_message(role):
                 if not isinstance(msg, dict):
-                    if msg is not "":
+                    if msg != "":
                         st.markdown(msg.content)
     except Exception as e:
         st.markdown("Error")
@@ -628,7 +628,7 @@ def main_chat():
     st.sidebar.info(f"**IP:** `{client_ip}`")
     
     # Mostrar información geográfica si está disponible
-    if client_ip and client_ip is not "No disponible":
+    if client_ip and client_ip != "No disponible":
         ip_info = get_ip_info(client_ip)
         if ip_info:
             st.sidebar.caption(f"📍 {ip_info.get('city', '')}, {ip_info.get('country_name', '')}")
