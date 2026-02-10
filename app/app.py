@@ -29,34 +29,35 @@ GOOGLE_VERTEX_AI_PROJECT = st.secrets['GOOGLE']['GOOGLE_VERTEX_AI_PROJECT']
 GOOGLE_APPLICATION_CREDENTIALS = st.secrets['GOOGLE']['GOOGLE_APPLICATION_CREDENTIALS']
 AWS_BEDROCK_REGION = st.secrets['AWS']['AWS_BEDROCK_REGION']
 AWS_DYNAMODB_REGION = st.secrets['AWS']['AWS_DYNAMODB_REGION']
-AWS_BEDROCK_AI_MODELO = st.secrets['AWS']['AWS_BEDROCK_AI_MODELO']
+AWS_BEDROCK_AI_MODELO_CLAUDE = st.secrets['AWS']['AWS_BEDROCK_AI_MODELO_CLAUDE']
+AWS_BEDROCK_AI_MODELO_DEEPSEEK = st.secrets['AWS']['AWS_BEDROCK_AI_MODELO_DEEPSEEK']
 MAX_IMAGENES_PER_DAY = st.secrets['FEATURES']['MAX_IMAGENES_PER_DAY']
-#GCP_SERVICE_ACCOUNT_B64 = st.secrets['GCP_SERVICE_ACCOUNT']['GCP_SERVICE_ACCOUNT_B64']
+GCP_SERVICE_ACCOUNT_B64 = st.secrets['GCP_SERVICE_ACCOUNT']['GCP_SERVICE_ACCOUNT_B64']
 AWS_BEDROCK_AI_MODELO_TITAN = st.secrets['AWS']['AWS_BEDROCK_AI_MODELO_TITAN']
 
 bedrock_client = boto3.client('bedrock-runtime', region_name=AWS_BEDROCK_REGION)  # Ajusta la región según sea necesario
 # Definir los scopes necesarios para Vertex AI
-# SCOPES = [
-#     'https://www.googleapis.com/auth/cloud-platform',
-#     'https://www.googleapis.com/auth/cloud-platform.read-only'
-# ]
+SCOPES = [
+    'https://www.googleapis.com/auth/cloud-platform',
+    'https://www.googleapis.com/auth/cloud-platform.read-only'
+]
 
-# def cargar_credenciales_gcp(scope):
-#     b64 = GCP_SERVICE_ACCOUNT_B64
-#     info = json.loads(base64.b64decode(b64).decode("utf-8"))
-#     return service_account.Credentials.from_service_account_info(
-#         info,
-#         scopes=scope
-#     )
+def cargar_credenciales_gcp(scope):
+    b64 = GCP_SERVICE_ACCOUNT_B64
+    info = json.loads(base64.b64decode(b64).decode("utf-8"))
+    return service_account.Credentials.from_service_account_info(
+        info,
+        scopes=scope
+    )
     
-# # Inicializar Vertex AI
-# credentials = cargar_credenciales_gcp(SCOPES)
-# client_vertex_ai = genai.Client(
-#     vertexai=True, 
-#     project=GOOGLE_VERTEX_AI_PROJECT, 
-#     location=GOOGLE_VERTEX_AI_LOCATION
-#     ,credentials=credentials
-# )
+# Inicializar Vertex AI
+credentials = cargar_credenciales_gcp(SCOPES)
+client_vertex_ai = genai.Client(
+    vertexai=True, 
+    project=GOOGLE_VERTEX_AI_PROJECT, 
+    location=GOOGLE_VERTEX_AI_LOCATION
+    ,credentials=credentials
+)
 
 
 # Configura AWS DynamoDB
@@ -212,9 +213,11 @@ def chatbot_page():
             with st.chat_message("assistant"):
                 response_placeholder = st.empty()
                 full_response = ""
-
+                
                 try:
-                    full_response = get_bedrock_response(pregunta)
+                    
+                    full_response = get_bedrock_response_deepseek(pregunta)
+                    #print(f"TEST {full_response}")
                     response_placeholder.markdown(full_response)
 
                 except NoCredentialsError:
@@ -315,7 +318,7 @@ def image_generation_page(client_ip):
             
             
 # Función para mostrar la página de generación de imágenes
-def image_generation_page1(client_ip):
+def image_generation_page_vertex_ai(client_ip):
 
     st.title("Image Generator from Text")
     
@@ -355,7 +358,7 @@ def image_generation_page1(client_ip):
                     if check_image_limit(client_ip):
                         if prompt:
                             #image = generate_image_from_text(model, prompt)
-                            text_out, images_out = generate_image_from_text(model, prompt)
+                            text_out, images_out = generate_image_from_text_vertex_ai(model, prompt)
                             
                             if text_out:
                                 st.markdown(text_out)
@@ -406,41 +409,6 @@ def generate_image_from_text(modelo, prompt):
     """
     try:
         with st.spinner("Generando imagen... ✨"):
-            # model_id = AWS_BEDROCK_AI_MODELO_STABILITY  # Bedrock modelId :contentReference[oaicite:1]{index=1}
-            # if seed is None:
-            #     seed = random.randint(0, 4294967295)  # rango típico :contentReference[oaicite:2]{index=2}
-
-            # # Payload nativo de SDXL en Bedrock :contentReference[oaicite:3]{index=3}
-            # text_prompts = [{"text": prompt}]
-            # if negative_prompt:
-            #     text_prompts.append({"text": negative_prompt, "weight": -1})
-
-            # native_request = {
-            #     "text_prompts": text_prompts,
-            #     "seed": seed,
-            #     "cfg_scale": cfg_scale,
-            #     "steps": steps,
-            # }
-            # if style_preset:
-            #     native_request["style_preset"] = style_preset
-
-            # response = bedrock_client.invoke_model(
-            #     modelId=model_id,
-            #     body=json.dumps(native_request),
-            #     contentType="application/json",
-            #     accept="application/json",
-            # )
-
-            # model_response = json.loads(response["body"].read())
-
-            # images_out: list[bytes] = []
-            # for art in model_response.get("artifacts", []):
-            #     b64 = art.get("base64")
-            #     if b64:
-            #         images_out.append(base64.b64decode(b64))
-
-            # return "", images_out
-            
             payload = {
                 "taskType": "TEXT_IMAGE",
                 "textToImageParams": {
@@ -478,32 +446,32 @@ def generate_image_from_text(modelo, prompt):
         return "", []
     
     
-# def generate_image_from_text1(model, prompt):
+def generate_image_from_text_vertex_ai(model, prompt):
     
-#     """Genera imágenes usando Vertex AI"""
-#     try:
-#         with st.spinner("Generando imágenes... ✨"):
-#             response = client_vertex_ai.models.generate_content(
-#                 model=model,
-#                 contents=prompt,
-#                 config=types.GenerateContentConfig(
-#                     response_modalities=["IMAGE"],
-#                 ),
-#             )
+    """Genera imágenes usando Vertex AI"""
+    try:
+        with st.spinner("Generando imágenes... ✨"):
+            response = client_vertex_ai.models.generate_content(
+                model=model,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_modalities=["IMAGE"],
+                ),
+            )
             
-#             text_out = ""
-#             images_out: list[bytes] = []
+            text_out = ""
+            images_out: list[bytes] = []
 
-#             for part in response.candidates[0].content.parts:
-#                 if getattr(part, "text", None):
-#                     text_out += part.text
-#                 elif getattr(part, "inline_data", None) and getattr(part.inline_data, "data", None):
-#                     images_out.append(part.inline_data.data)
+            for part in response.candidates[0].content.parts:
+                if getattr(part, "text", None):
+                    text_out += part.text
+                elif getattr(part, "inline_data", None) and getattr(part.inline_data, "data", None):
+                    images_out.append(part.inline_data.data)
 
-#             return text_out.strip(), images_out
-#     except Exception as e:
-#         st.error(f"Error generating images: {str(e)}")
-#         return None
+            return text_out.strip(), images_out
+    except Exception as e:
+        st.error(f"Error generating images: {str(e)}")
+        return None
 
 # Función para convertir imagen a bytes para descargar
 def get_image_download_link(img, filename):
@@ -514,98 +482,142 @@ def get_image_download_link(img, filename):
     href = f'<a href="data:file/png;base64,{img_str}" download="{filename}">Download image</a>'
     return href
 
+
 # Lógica para obtener la respuesta del modelo de Amazon Bedrock
-def get_bedrock_response(user_input):
-    # model_id = AWS_BEDROCK_AI_MODELO #anthropic.claude-3-haiku-20240307-v1:0
-    # try:
-    #     # Format the request payload using the model's native structure.
-    #     native_request = {
-    #         "anthropic_version": "bedrock-2023-05-31",
-    #         "max_tokens": 512,
-    #         "temperature": 0.7,
-    #         "top_p": 0.6,
-    #         "messages": [
-    #             {
-    #                 "role": "user",
-    #                 "content": [{"type": "text", "text": user_input}],
-    #             }
-    #         ],
-    #     }
-        
-    #     # Convert the native request to JSON.
-    #     request = json.dumps(native_request)
-    #     print("Request body:", request)
-        
-    #     response = bedrock_client.invoke_model(
-    #         modelId=model_id, 
-    #         body=request,
-    #         contentType='application/json'
-    #     )
-    #     # Decode the response body.
-    #     model_response = json.loads(response["body"].read())
-
-    #     # Extract and print the response text.
-    #     response_text = model_response["content"][0]["text"]
-    #     print(response_text)
-
-    #     return response_text
-    
-    # Use the API to send a text message to DeepSeek-R1.
+def get_bedrock_response_cloude(user_input):
     
     try:
-        # Create a Bedrock Runtime client in the AWS Region of your choice.
-        client = boto3.client("bedrock-runtime", region_name="us-east-1")
+        # Format the request payload using the model's native structure.
+        native_request = {
+            "anthropic_version": "bedrock-2023-05-31",
+            "max_tokens": 512,
+            "temperature": 0.7,
+            "top_p": 0.6,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [{"type": "text", "text": user_input}],
+                }
+            ],
+        }
+        
+        # Convert the native request to JSON.
+        request = json.dumps(native_request)
+        print("Request body:", request)
+        
+        response = bedrock_client.invoke_model(
+            modelId=AWS_BEDROCK_AI_MODELO_CLAUDE, 
+            body=request,
+            contentType='application/json'
+        )
+        # Decode the response body.
+        model_response = json.loads(response["body"].read())
 
-        # Set the cross Region inference profile ID for DeepSeek-R1
-        #model_id = "us.deepseek.r1-v1:0"
+        # Extract and print the response text.
+        response_text = model_response["content"][0]["text"]
+        print(response_text)
 
-        # Define the prompt for the model.
-        #prompt = "Describe the purpose of a 'hello world' program in one line."
-      
-        # Embed the prompt in DeepSeek-R1's instruction format.
-        formatted_prompt = f"""
-        <｜begin▁of▁sentence｜><｜User｜>{user_input}<｜Assistant｜>
-        """
+        return response_text
+    
+    except Exception as e:
+        exc_type, exc_obj, tb = sys.exc_info()
+        line_number = tb.tb_lineno
+        st.error(f"ERROR: Can't invoke '{AWS_BEDROCK_AI_MODELO_CLAUDE}'. Reason: {e}")
+        st.markdown(f"Error:  {str(e)}; line_number: {line_number }")
+        return "I'm sorry, I can't answer at this time."
+
+
+# Lógica para obtener la respuesta del modelo de Amazon Bedrock
+def get_bedrock_response_deepseek(user_input):
+    
+    try:
+        
+        formatted_prompt = f"""Eres Asistente de USIL y SIU con nombre LucIA , un experto en la Universidad San Ignacio de Loyola (USIL) y San Ignacio University (SIU).
+            Pregunta: {user_input}
+            INSTRUCCIONES:
+            1. Responde exclusivamente en español e Inglés de ser el caso.
+            2. Sé preciso y veraz con la información
+            3. Si no sabes algo, di: "No tengo esa información específica, pero puedo ayudarte con otros temas sobre USIL"
+            4. Mantén un tono profesional y amable
+            5. Proporciona información clara y estructurada cuando sea apropiado
+            6. Cuando te pregunten de  Universidad San Ignacio de Loyola (USIL) toma como referencia esta página web https://usil.edu.pe/ y https://descubre.usil.edu.pe/landings/pregrado/admision/
+            7. Cuando te pregunten de San Ignacio University (SIU) toma como referencia esta página web https://www.sanignaciouniversity.edu/
+            8. Cuando te pregunten por la carrera Medicina Humana, responde en base a esta web: https://usil.edu.pe/pregrado/medicina-humana/
+            
+            NO hagas:
+            - No inventes información
+            - No uses jerga técnica excesiva
+            - No incluyas opiniones personales
+            - No proporciones información desactualizada
+            
+            Instrucciones de formato:
+            1. Usa **negritas** para puntos importantes
+            2. Usa listas con guiones (-) para enumerar
+            3. Separa con saltos de línea
+            4. Mantén respuestas claras y organizadas
+            
+            Respuesta:
+            """
 
         body = json.dumps({
             "prompt": formatted_prompt,
             "max_tokens": 512,
             "temperature": 0.5,
             "top_p": 0.9,
+            
         })
         # Invoke the model with the request.
-        response = client.invoke_model(modelId=AWS_BEDROCK_AI_MODELO, body=body)
+        response = bedrock_client.invoke_model(modelId=AWS_BEDROCK_AI_MODELO_DEEPSEEK, body=body)
 
         # Read the response body.
         model_response = json.loads(response["body"].read())
         
         # Extract choices.
         choices = model_response["choices"]
-        response = ""
+        response_text = ""
         if len(choices) > 0:
-            response = choices[0]['text'].replace("</think>", "")
-        response_text = remove_thinking_tags(response)
-        return response_text
-        # # Print choices.
-        # for index, choice in enumerate(choices):
-        #     print(choice['text'])
-        #     response = "".join(choice['text'])
-        #     response = response.replace("</think>", "")
-        #     print(response)
+            response_text = choices[0]['text'].strip().replace("</think>", "")
+            
+            # Limpieza básica
+            #response_text = response_text.replace("assistant:", "")
+            #response_text = response_text.strip()
+            #print(response_text)
+            return response_text
         
+        return "No recibí una respuesta del modelo."
     except Exception as e:
         exc_type, exc_obj, tb = sys.exc_info()
         line_number = tb.tb_lineno
-        st.error(f"ERROR: Can't invoke '{AWS_BEDROCK_AI_MODELO}'. Reason: {e}")
+        st.error(f"ERROR: Can't invoke '{AWS_BEDROCK_AI_MODELO_CLAUDE}'. Reason: {e}")
         st.markdown(f"Error:  {str(e)}; line_number: {line_number }")
         return "I'm sorry, I can't answer at this time."
 
 def remove_thinking_tags(response_content):
-    
     """Removes the <think>...</think> block from the response string."""
     regex_pattern = r'<think>[\s\S]*?<\/think>\n*\n*'
     cleaned_content = re.sub(regex_pattern, '', response_content)
     return cleaned_content
+
+def remove_thinking_tags1(response_text):
+    """Remove thinking sections (enclosed in <think> tags or similar patterns) from DeepSeek's response."""
+    
+    # Pattern 1: Remove content between <think> tags
+    if '<think>' in response_text and '</think>' in response_text:
+        start = response_text.find('<think>')
+        end = response_text.find('</think>') + len('</think>')
+        response_text = response_text[:start] + response_text[end:]
+    
+    # Pattern 2: Remove any XML-like thinking tags using regex
+    response_text = re.sub(r'<thinking>.*?</thinking>', '', response_text, flags=re.DOTALL)
+    response_text = re.sub(r'<reasoning>.*?</reasoning>', '', response_text, flags=re.DOTALL)
+    response_text = re.sub(r'<thought>.*?</thought>', '', response_text, flags=re.DOTALL)
+    response_text = re.sub(r'<analyse>.*?</analyse>', '', response_text, flags=re.DOTALL)
+    response_text = re.sub(r'<analysis>.*?</analysis>', '', response_text, flags=re.DOTALL)
+    
+    # Clean up any extra whitespace
+    response_text = response_text.strip()
+    
+    return response_text
         
 def main_chat():
     
