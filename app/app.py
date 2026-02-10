@@ -168,16 +168,16 @@ def get_ip_info(ip):
 def initialize_vertex_ai():
     """Inicializa la conexión con Vertex AI"""
     try:
-        return AWS_BEDROCK_AI_MODELO_TITAN
+        return GOOGLE_VERTEX_AI_MODELO
     except Exception as e:
         st.error(f"Error initializing Vertex AI: {str(e)}")
         return None
     
          
 def chatbot_page():
-    st.set_page_config(page_title="AI Chatbot SIU", page_icon="")
-    st.title("AI Chatbot")
-    st.markdown("This is a AI chatbot SIU. Type your message!")
+    
+    st.title("🎓 LucIA - Chat")
+    st.info("*LucIA* is the official virtual assistant of the SIU. Type your message!")
     
     if st.button("🗑️ New chat"):
         st.session_state.messages = []
@@ -231,16 +231,13 @@ def chatbot_page():
         except Exception as e:
             st.error(f"Error generating response: {str(e)}")
             st.info("Verify that your AWS API key credentials are configured correctly.")
-
-
+    
 # ----------------------------
 # Streamlit page
 # ----------------------------
-def image_generation_page(client_ip):
+def image_generation_page_titan(client_ip):
 
-    st.title("Image Generator from Text")
-    
-    model = initialize_vertex_ai()
+    st.title("🎓 LucIA - Image Generator from Text")
     
     if "images" not in st.session_state:
         st.session_state.images = bytes()
@@ -276,7 +273,7 @@ def image_generation_page(client_ip):
                     if check_image_limit(client_ip):
                         if prompt:
                             #image = generate_image_from_text(model, prompt)
-                            text_out, images_out = generate_image_from_text(model, prompt)
+                            text_out, images_out = generate_image_from_text(AWS_BEDROCK_AI_MODELO_TITAN, prompt)
                             
                             if text_out:
                                 st.markdown(text_out)
@@ -320,7 +317,8 @@ def image_generation_page(client_ip):
 # Función para mostrar la página de generación de imágenes
 def image_generation_page_vertex_ai(client_ip):
 
-    st.title("Image Generator from Text")
+    st.title("🎓 LucIA - Image Generator from Text")
+    st.info("*LucIA* is the official virtual assistant of the SIU. Type your text!")
     
     model = initialize_vertex_ai()
     
@@ -621,6 +619,14 @@ def remove_thinking_tags1(response_text):
         
 def main_chat():
     
+    # Configuración de página
+    st.set_page_config(
+        page_title="LucIA - Asistente SIU",
+        page_icon="🎓",
+        layout="wide",
+        initial_sidebar_state="expanded"
+    )
+    
     # Crear los botones tipo TAB
     client_ip = get_client_ip()
     #with st.sidebar:
@@ -641,9 +647,18 @@ def main_chat():
     if option == "AI Chatbot":
         chatbot_page()  # Redirige al chatbot
     elif option == "Image Generator":
-        image_generation_page(client_ip)  # Redirige a la página de imágenes
+        image_generation_page_titan(client_ip)  # Redirige a la página de imágenes
 
-
+    st.sidebar.markdown("---")
+    st.sidebar.markdown(
+        """
+        <div style="text-align: center; color: gray; font-size: 0.8rem;">
+        <p>© 2026 Universidad San Ignacio de Loyola (USIL) | San Ignacio University (SIU)</p>
+        <p>This is a virtual assistance system. Information may be subject to change.</p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 if __name__ == '__main__':
     main_chat()
