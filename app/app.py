@@ -408,7 +408,7 @@ def generate_image_from_text(modelo, prompt):
     - images_out: list[bytes] (PNG bytes)
     """
     try:
-        with st.spinner("Generando imagen... ✨"):
+        with st.spinner("Generating image... ✨"):
             payload = {
                 "taskType": "TEXT_IMAGE",
                 "textToImageParams": {
