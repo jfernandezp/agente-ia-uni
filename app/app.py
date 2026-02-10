@@ -624,7 +624,7 @@ def main_chat():
     # Crear los botones tipo TAB
     client_ip = get_client_ip()
     #with st.sidebar:
-    st.sidebar.image("images/image.png", width=200)
+    st.sidebar.image("images\logo.PNG", width=200)
     st.sidebar.info(f"**IP:** `{client_ip}`")
     
     # Mostrar información geográfica si está disponible
