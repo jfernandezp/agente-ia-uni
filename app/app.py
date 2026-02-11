@@ -157,8 +157,6 @@ def main():
         st.session_state.last_option = option
         st.rerun()
     
-    # root = st.empty()
-    # with root.container():
     if option == "AI Chatbot":
         render_chatbot(bedrock_client, AWS_BEDROCK_AI_MODELO_DEEPSEEK)
     else:
@@ -169,17 +167,6 @@ def main():
             check_image_limit_fn=check_image_limit,
             increment_image_count_fn=increment_image_count,
         )
-
-    # st.sidebar.markdown("---")
-    # st.sidebar.markdown(
-    #     """
-    #     <div style="text-align: center; color: gray; font-size: 0.8rem;">
-    #     <p>© 2026 Universidad San Ignacio de Loyola (USIL) | San Ignacio University (SIU)</p>
-    #     <p>This is a virtual assistance system. Information may be subject to change.</p>
-    #     </div>
-    #     """,
-    #     unsafe_allow_html=True,
-    # )
 
 
 if __name__ == "__main__":
