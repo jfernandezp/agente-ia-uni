@@ -61,15 +61,19 @@ def render_chatbot(bedrock_client, model_id_deepseek: str) -> None:
         st.session_state.messages = []
 
     # Pintar historial
+    # for msg in st.session_state.messages:
+    #     if isinstance(msg, SystemMessage):
+    #         continue
+
+    #     role = "assistant" if isinstance(msg, AIMessage) else "user"
+    #     with st.chat_message(role):
+    #         if hasattr(msg, "content") and msg.content:
+    #             st.markdown(msg.content)
+    
     for msg in st.session_state.messages:
-        if isinstance(msg, SystemMessage):
-            continue
-
-        role = "assistant" if isinstance(msg, AIMessage) else "user"
-        with st.chat_message(role):
-            if hasattr(msg, "content") and msg.content:
-                st.markdown(msg.content)
-
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
+        
     pregunta = st.chat_input("Enter message ...", key="chat_input_main")
     if not pregunta:
         return
@@ -89,5 +93,14 @@ def render_chatbot(bedrock_client, model_id_deepseek: str) -> None:
             st.error(f"Error generating response: {e}")
             return
 
-    st.session_state.messages.append(HumanMessage(content=pregunta))
-    st.session_state.messages.append(AIMessage(content=respuesta))
+    # st.session_state.messages.append(HumanMessage(content=pregunta))
+    # st.session_state.messages.append(AIMessage(content=respuesta))
+    st.session_state.messages.append({
+        "role": "user",
+        "content": pregunta
+    })
+
+    st.session_state.messages.append({
+        "role": "assistant",
+        "content": respuesta
+    })
