@@ -52,9 +52,6 @@ def get_bedrock_response_deepseek(bedrock_client, model_id_deepseek: str, user_i
 def render_chatbot(bedrock_client, model_id_deepseek: str) -> None:
     st.title("🎓 LucIA - Chat")
     st.info("*LucIA* is the official virtual assistant of the SIU. Type your message!")
-
-    
-
     if "chat_messages" not in st.session_state:
         st.session_state.chat_messages = []
         
