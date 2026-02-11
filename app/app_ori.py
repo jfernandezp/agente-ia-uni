@@ -1,0 +1,661 @@
+import streamlit as st
+
+# Configuración de página
+st.set_page_config(
+    page_title="LucIA - Asistente SIU",
+    page_icon="🎓",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+import os
+import boto3
+from botocore.exceptions import NoCredentialsError
+import json
+from google import genai
+from google.genai import types
+import io
+import base64
+from datetime import datetime
+import socket
+import requests
+import sys
+from google.oauth2 import service_account
+import re
+
+os.environ["AWS_ACCESS_KEY_ID"] = st.secrets["AWS_ACCESS_KEY_ID"]
+os.environ["AWS_SECRET_ACCESS_KEY"] = st.secrets["AWS_SECRET_ACCESS_KEY"]
+os.environ["AWS_REGION"] = st.secrets["AWS_REGION"]
+
+GOOGLE_VERTEX_AI_MODELO = st.secrets['GOOGLE']['GOOGLE_VERTEX_AI_MODELO']
+GOOGLE_VERTEX_AI_LOCATION = st.secrets['GOOGLE']['GOOGLE_VERTEX_AI_LOCATION']
+GOOGLE_VERTEX_AI_PROJECT = st.secrets['GOOGLE']['GOOGLE_VERTEX_AI_PROJECT']
+GOOGLE_APPLICATION_CREDENTIALS = st.secrets['GOOGLE']['GOOGLE_APPLICATION_CREDENTIALS']
+AWS_BEDROCK_REGION = st.secrets['AWS']['AWS_BEDROCK_REGION']
+AWS_DYNAMODB_REGION = st.secrets['AWS']['AWS_DYNAMODB_REGION']
+AWS_BEDROCK_AI_MODELO_CLAUDE = st.secrets['AWS']['AWS_BEDROCK_AI_MODELO_CLAUDE']
+AWS_BEDROCK_AI_MODELO_DEEPSEEK = st.secrets['AWS']['AWS_BEDROCK_AI_MODELO_DEEPSEEK']
+MAX_IMAGENES_PER_DAY = st.secrets['FEATURES']['MAX_IMAGENES_PER_DAY']
+GCP_SERVICE_ACCOUNT_B64 = st.secrets['GCP_SERVICE_ACCOUNT']['GCP_SERVICE_ACCOUNT_B64']
+AWS_BEDROCK_AI_MODELO_TITAN = st.secrets['AWS']['AWS_BEDROCK_AI_MODELO_TITAN']
+
+bedrock_client = boto3.client('bedrock-runtime', region_name=AWS_BEDROCK_REGION)  # Ajusta la región según sea necesario
+# Definir los scopes necesarios para Vertex AI
+SCOPES = [
+    'https://www.googleapis.com/auth/cloud-platform',
+    'https://www.googleapis.com/auth/cloud-platform.read-only'
+]
+
+def cargar_credenciales_gcp(scope):
+    b64 = GCP_SERVICE_ACCOUNT_B64
+    info = json.loads(base64.b64decode(b64).decode("utf-8"))
+    return service_account.Credentials.from_service_account_info(
+        info,
+        scopes=scope
+    )
+    
+# Inicializar Vertex AI
+credentials = cargar_credenciales_gcp(SCOPES)
+client_vertex_ai = genai.Client(
+    vertexai=True, 
+    project=GOOGLE_VERTEX_AI_PROJECT, 
+    location=GOOGLE_VERTEX_AI_LOCATION
+    ,credentials=credentials
+)
+
+
+# Configura AWS DynamoDB
+dynamodb = boto3.resource('dynamodb', region_name=AWS_DYNAMODB_REGION)  # Ajusta la región según sea necesario
+table = dynamodb.Table('tbl_image_usage')
+
+# Función para verificar cuántas imágenes ha generado el cliente hoy
+def check_image_limit(client_ip):
+    today = datetime.now().strftime('%Y-%m-%d')  # Fecha actual (por ejemplo: '2026-02-02')
+    try:
+        # Consulta la tabla para obtener el registro del cliente para hoy
+        response = table.get_item(
+            Key={'user_id': client_ip, 'date': today}
+        )
+        
+        if 'Item' in response:
+            images_generated_today = response['Item']['images_generated_today']
+            if images_generated_today >= int(MAX_IMAGENES_PER_DAY):
+                return False  # Límite alcanzado, no se puede generar más imágenes
+            else:
+                return True  # Puede generar más imágenes
+        else:
+            # Si no hay registro para el día de hoy, crear un nuevo registro
+            table.put_item(
+                Item={'user_id': client_ip, 'date': today, 'images_generated_today': 0}
+            )
+            return True  # Puede generar la primera imagen del día
+
+    except Exception as e:
+        st.error(f"Error querying DynamoDB: {e}")
+        return False
+
+# Función para actualizar el contador de imágenes generadas por el cliente
+def increment_image_count(client_ip):
+    today = datetime.now().strftime('%Y-%m-%d')
+    
+    try:
+        # Intenta obtener el item existente
+        response = table.get_item(
+            Key={'user_id': client_ip, 'date': today}
+        )
+        
+        if 'Item' in response:
+            # Si ya existe, incrementa el contador
+            current_count = response['Item']['images_generated_today']
+            if current_count < int(MAX_IMAGENES_PER_DAY):
+                table.update_item(
+                    Key={'user_id': client_ip, 'date': today},
+                    UpdateExpression="SET images_generated_today = :val",
+                    ExpressionAttributeValues={':val': current_count + 1}
+                )
+                return True  # Se actualizó correctamente
+            else:
+                return False  # Límite alcanzado
+        else:
+            # Si no existe, crea el registro con la primera imagen
+            table.put_item(
+                Item={'user_id': client_ip, 'date': today, 'images_generated_today': 0}
+            )
+            return True  # Se creó el nuevo registro
+
+    except Exception as e:
+        st.error(f"Error updating DynamoDB: {e}")
+        return False
+    
+# Función para obtener la IP del cliente
+def get_client_ip():
+    """Obtiene la dirección IP del cliente"""
+    try:
+        # Método 1: Usando streamlit (IP local en desarrollo)
+        session = st.runtime.get_instance()._session_mgr.list_active_sessions()
+        if session:
+            # En producción con Streamlit Cloud o servidor
+            ip = st.context.headers.get("X-Forwarded-For")
+            if ip:
+                # Tomar la primera IP si hay múltiples
+                return ip.split(",")[0].strip()
+        
+        # Método 2: Obtener IP pública usando servicio externo
+        response = requests.get('https://api.ipify.org?format=json', timeout=3)
+        if response.status_code == 200:
+            return response.json()['ip']
+    except:
+        pass
+    
+    try:
+        # Método 3: IP local de la máquina
+        hostname = socket.gethostname()
+        local_ip = socket.gethostbyname(hostname)
+        return local_ip
+    except:
+        return "No disponible"
+
+# Función para obtener información adicional de la IP
+def get_ip_info(ip):
+    """Obtiene información geográfica de la IP"""
+    try:
+        if ip and ip != "No disponible" and not ip.startswith("127.") and not ip.startswith("192.168."):
+            response = requests.get(f'https://ipapi.co/{ip}/json/', timeout=3)
+            if response.status_code == 200:
+                return response.json()
+    except:
+        pass
+    return None
+
+# Función para inicializar Vertex AI
+@st.cache_resource
+def initialize_vertex_ai():
+    """Inicializa la conexión con Vertex AI"""
+    try:
+        return GOOGLE_VERTEX_AI_MODELO
+    except Exception as e:
+        st.error(f"Error initializing Vertex AI: {str(e)}")
+        return None
+    
+         
+def chatbot_page():
+    
+    st.title("🎓 LucIA - Chat")
+    st.info("*LucIA* is the official virtual assistant of the SIU. Type your message!")
+    
+    if st.button("🗑️ New chat"):
+        st.session_state.messages = []
+        st.rerun()
+    
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+    
+    try:
+        for msg in st.session_state.messages:
+            if isinstance(msg, SystemMessage):
+                print(f"Mensaje msg: {msg}")
+                continue  # no mostrar mensajes del sistema al usuario
+
+            role = "assistant" if isinstance(msg, AIMessage) else "user"
+            with st.chat_message(role):
+                if not isinstance(msg, dict):
+                    if msg != "":
+                        st.markdown(msg.content)
+    except Exception as e:
+        st.markdown("Error")
+    
+    # Input de usuario
+    pregunta_chat = st.chat_input("Enter message ...", key="chat_input_main")
+    
+    if pregunta_chat:
+        # Mostrar y almacenar mensaje del usuario
+        with st.chat_message("user"):
+            st.markdown(pregunta_chat)
+
+        try:
+            #Mostrar la respuesta en el interfaz
+            with st.chat_message("assistant"):
+                response_placeholder = st.empty()
+                full_response = ""
+                
+                try:
+                    full_response = get_bedrock_response_deepseek(pregunta_chat)
+                    #print(f"TEST {full_response}")
+                    response_placeholder.markdown(full_response)
+
+                except NoCredentialsError:
+                    st.error("AWS credentials could not be found.")
+                    return
+
+            #Almacenamos el mensaje
+            st.session_state.messages.append(HumanMessage(content=pregunta_chat))
+            st.session_state.messages.append(AIMessage(content=full_response))
+
+        except Exception as e:
+            st.error(f"Error generating response: {str(e)}")
+            st.info("Verify that your AWS API key credentials are configured correctly.")
+    
+# ----------------------------
+# Streamlit page
+# ----------------------------
+def image_generation_page_titan(client_ip):
+
+    st.title("🎓 LucIA - Image Generator from Text")
+    
+    if "images" not in st.session_state:
+        st.session_state.images = bytes()
+    
+    if "text_content" not in st.session_state:
+        st.session_state.text_content = ""
+        
+    # Create two columns with equal width
+    #col1, col2 = st.columns([3,1])
+    if st.button("New Image", key="btn_new_chat"):
+        st.session_state.images = bytes()
+        st.session_state.text_content = ""
+        st.rerun()
+                
+    try:
+        if len(st.session_state.images) > 0:
+            #with col1:
+            img_bytes = st.session_state.images
+            st.text_area("📝 Describe the image you want to generate...", st.session_state.text_content, height=100, key="img_prompt")
+            st.image(img_bytes, caption="Image", width='stretch')
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            st.download_button(
+                label=f"Download image",
+                data=img_bytes,
+                file_name=f"imagen_{ts}.png",
+                mime="image/png",
+                key="download_image",
+            )
+        else:
+            #with col1:
+            prompt = st.text_area(
+            "📝 Describe the image you want to generate...",
+            height=100,
+            placeholder="Example: An astronaut cat floating in space, art nouveau style, vibrant colors, high quality.",
+            key="img_prompt"
+            )
+            if st.button("Generate Image", key="btn_gene_image"):
+                if check_image_limit(client_ip):
+                    if prompt:
+                        #image = generate_image_from_text(model, prompt)
+                        text_out, images_out = generate_image_from_text(AWS_BEDROCK_AI_MODELO_TITAN, prompt)
+                        
+                        if text_out:
+                            st.markdown(text_out)
+                            
+                        if not images_out:
+                            st.warning("No image appeared. Write a message explicitly requesting an image.")
+                        else:
+                            #for idx, img_bytes in enumerate(images_out, start=1):
+                            st.image(images_out, caption="Resultado", width='stretch')
+
+                            # Botón de descarga
+                            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+                            st.download_button(
+                                label=f"Download image",
+                                data=images_out,
+                                file_name=f"imagen_{ts}.png",
+                                mime="image/png",
+                                key="btn_download_img"
+                            )
+                            increment_image_count(client_ip)
+                        # st.session_state.images.append(
+                        #     {"role": "assistant", "text": text_out, "imagenes": images_out}
+                        # )
+                        st.session_state.images = images_out
+                        st.session_state.text_content = prompt
+                    else:
+                        st.error("Enter a description to generate the image.")
+                else:
+                    st.info("You've reached today's image limit. Please try again tomorrow.")
+    except Exception as e:
+        exc_type, exc_obj, tb = sys.exc_info()
+        line_number = tb.tb_lineno
+        st.markdown(f"Error:  {str(e)}; line_number: {line_number }")
+
+    #with col2:
+    
+# Función para mostrar la página de generación de imágenes
+def image_generation_page_vertex_ai(client_ip):
+
+    st.title("🎓 LucIA - Image Generator from Text")
+    st.info("*LucIA* is the official virtual assistant of the SIU. Type your text!")
+    
+    model = initialize_vertex_ai()
+    
+    if "images" not in st.session_state:
+        st.session_state.images = bytes()
+    
+    if "text_content" not in st.session_state:
+        st.session_state.text_content = ""
+        
+    # Create two columns with equal width
+    col1, col2 = st.columns([3,1])
+    
+    try:
+        if len(st.session_state.images) > 0:
+            with col1:
+                img_bytes = st.session_state.images
+                st.text_area("📝 Describe the image you want to generate...", st.session_state.text_content, height=100)
+                st.image(img_bytes, caption="Image", width='stretch')
+                ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+                st.download_button(
+                    label=f"Download image",
+                    data=img_bytes,
+                    file_name=f"imagen_{ts}.png",
+                    mime="image/png",
+                )
+        else:
+            with col1:
+                prompt = st.text_area(
+                "📝 Describe the image you want to generate...",
+                height=100,
+                placeholder="Example: An astronaut cat floating in space, art nouveau style, vibrant colors, high quality.",
+                
+                )
+                if st.button("Generate Image", key="image_generate"):
+                    if check_image_limit(client_ip):
+                        if prompt:
+                            #image = generate_image_from_text(model, prompt)
+                            text_out, images_out = generate_image_from_text_vertex_ai(model, prompt)
+                            
+                            if text_out:
+                                st.markdown(text_out)
+                                
+                            if not images_out:
+                                    st.warning("No image appeared. Write a message explicitly requesting an image.")
+                            else:
+                                for idx, img_bytes in enumerate(images_out, start=1):
+                                    st.image(img_bytes, caption=f"Resultado {idx}", width='stretch')
+
+                                    # Botón de descarga
+                                    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+                                    st.download_button(
+                                        label=f"Download image",
+                                        data=img_bytes,
+                                        file_name=f"imagen_{ts}_{idx}.png",
+                                        mime="image/png",
+                                    )
+                                increment_image_count(client_ip)
+                            # st.session_state.images.append(
+                            #     {"role": "assistant", "text": text_out, "imagenes": images_out}
+                            # )
+                            st.session_state.images = img_bytes
+                            st.session_state.text_content = prompt
+                        else:
+                            st.error("Enter a description to generate the image.")
+                    else:
+                        st.info("You've reached today's image limit. Please try again tomorrow.")
+    except Exception as e:
+        exc_type, exc_obj, tb = sys.exc_info()
+        line_number = tb.tb_lineno
+        st.markdown(f"Error:  {str(e)}; line_number: {line_number }")
+
+    with col2:
+        if st.button("New Image"):
+            st.session_state.images = bytes()
+            st.session_state.text_content = ""
+            st.rerun()
+
+# ----------------------------
+# Bedrock Stable Diffusion (SDXL) text-to-image
+# ----------------------------
+def generate_image_from_text(modelo, prompt):
+    """
+    Devuelve: (text_out, images_out)
+    - text_out: str (SDXL normalmente no retorna texto; se deja vacío para compatibilidad)
+    - images_out: list[bytes] (PNG bytes)
+    """
+    try:
+        with st.spinner("Generating image... ✨"):
+            payload = {
+                "taskType": "TEXT_IMAGE",
+                "textToImageParams": {
+                    "text": str(prompt)
+                },
+                "imageGenerationConfig": {
+                    "numberOfImages": 1,
+                    "height": 1024,
+                    "width": 1024,
+                    "cfgScale": 8,
+                    "seed": 12345,
+                    "quality": "standard"
+                }
+            }
+
+            response = bedrock_client.invoke_model(
+                modelId=modelo,
+                contentType="application/json",
+                accept="application/json",
+                body=json.dumps(payload),
+            )
+
+            data = json.loads(response["body"].read())
+
+            # Titan devuelve base64 dentro de images[0] (string)
+            img_b64 = data["images"][0]
+            images_out = base64.b64decode(img_b64)
+            
+            return "", images_out
+    except Exception as e:
+        exc_type, exc_obj, tb = sys.exc_info()
+        line_number = tb.tb_lineno
+        st.error(f"Error generating images: {str(e)}")
+        st.markdown(f"Error:  {str(e)}; line_number: {line_number }")
+        return "", []
+    
+    
+def generate_image_from_text_vertex_ai(model, prompt):
+    
+    """Genera imágenes usando Vertex AI"""
+    try:
+        with st.spinner("Generando imágenes... ✨"):
+            response = client_vertex_ai.models.generate_content(
+                model=model,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_modalities=["IMAGE"],
+                ),
+            )
+            
+            text_out = ""
+            images_out: list[bytes] = []
+
+            for part in response.candidates[0].content.parts:
+                if getattr(part, "text", None):
+                    text_out += part.text
+                elif getattr(part, "inline_data", None) and getattr(part.inline_data, "data", None):
+                    images_out.append(part.inline_data.data)
+
+            return text_out.strip(), images_out
+    except Exception as e:
+        st.error(f"Error generating images: {str(e)}")
+        return None
+
+# Función para convertir imagen a bytes para descargar
+def get_image_download_link(img, filename):
+    """Genera un link de descarga para la imagen"""
+    buffered = io.BytesIO()
+    img._pil_image.save(buffered, format="PNG")
+    img_str = base64.b64encode(buffered.getvalue()).decode()
+    href = f'<a href="data:file/png;base64,{img_str}" download="{filename}">Download image</a>'
+    return href
+
+
+# Lógica para obtener la respuesta del modelo de Amazon Bedrock
+def get_bedrock_response_cloude(user_input):
+    
+    try:
+        # Format the request payload using the model's native structure.
+        native_request = {
+            "anthropic_version": "bedrock-2023-05-31",
+            "max_tokens": 512,
+            "temperature": 0.7,
+            "top_p": 0.6,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [{"type": "text", "text": user_input}],
+                }
+            ],
+        }
+        
+        # Convert the native request to JSON.
+        request = json.dumps(native_request)
+        print("Request body:", request)
+        
+        response = bedrock_client.invoke_model(
+            modelId=AWS_BEDROCK_AI_MODELO_CLAUDE, 
+            body=request,
+            contentType='application/json'
+        )
+        # Decode the response body.
+        model_response = json.loads(response["body"].read())
+
+        # Extract and print the response text.
+        response_text = model_response["content"][0]["text"]
+        print(response_text)
+
+        return response_text
+    
+    except Exception as e:
+        exc_type, exc_obj, tb = sys.exc_info()
+        line_number = tb.tb_lineno
+        st.error(f"ERROR: Can't invoke '{AWS_BEDROCK_AI_MODELO_CLAUDE}'. Reason: {e}")
+        st.markdown(f"Error:  {str(e)}; line_number: {line_number }")
+        return "I'm sorry, I can't answer at this time."
+
+
+# Lógica para obtener la respuesta del modelo de Amazon Bedrock
+def get_bedrock_response_deepseek(user_input):
+    
+    try:
+        
+        formatted_prompt = f"""Eres Asistente de USIL y SIU con nombre LucIA , un experto en la Universidad San Ignacio de Loyola (USIL) y San Ignacio University (SIU).
+            Pregunta: {user_input}
+            INSTRUCCIONES:
+            1. Responde exclusivamente en español e Inglés de ser el caso.
+            2. Sé preciso y veraz con la información
+            3. Si no sabes algo, di: "No tengo esa información específica, pero puedo ayudarte con otros temas sobre USIL"
+            4. Mantén un tono profesional y amable
+            5. Proporciona información clara y estructurada cuando sea apropiado
+            6. Cuando te pregunten de  Universidad San Ignacio de Loyola (USIL) toma como referencia esta página web https://usil.edu.pe/ y https://descubre.usil.edu.pe/landings/pregrado/admision/
+            7. Cuando te pregunten de San Ignacio University (SIU) toma como referencia esta página web https://www.sanignaciouniversity.edu/
+            8. Cuando te pregunten por la carrera Medicina Humana, responde en base a esta web: https://usil.edu.pe/pregrado/medicina-humana/
+            
+            NO hagas:
+            - No inventes información
+            - No uses jerga técnica excesiva
+            - No incluyas opiniones personales
+            - No proporciones información desactualizada
+            
+            Instrucciones de formato:
+            1. Usa **negritas** para puntos importantes
+            2. Usa listas con guiones (-) para enumerar
+            3. Separa con saltos de línea
+            4. Mantén respuestas claras y organizadas
+            
+            Respuesta:
+            """
+
+        body = json.dumps({
+            "prompt": formatted_prompt,
+            "max_tokens": 512,
+            "temperature": 0.5,
+            "top_p": 0.9,
+            
+        })
+        # Invoke the model with the request.
+        response = bedrock_client.invoke_model(modelId=AWS_BEDROCK_AI_MODELO_DEEPSEEK, body=body)
+
+        # Read the response body.
+        model_response = json.loads(response["body"].read())
+        
+        # Extract choices.
+        choices = model_response["choices"]
+        response_text = ""
+        if len(choices) > 0:
+            response_text = choices[0]['text'].strip().replace("</think>", "")
+            
+            # Limpieza básica
+            #response_text = response_text.replace("assistant:", "")
+            #response_text = response_text.strip()
+            #print(response_text)
+            return response_text
+        
+        return "No recibí una respuesta del modelo."
+    except Exception as e:
+        exc_type, exc_obj, tb = sys.exc_info()
+        line_number = tb.tb_lineno
+        st.error(f"ERROR: Can't invoke '{AWS_BEDROCK_AI_MODELO_CLAUDE}'. Reason: {e}")
+        st.markdown(f"Error:  {str(e)}; line_number: {line_number }")
+        return "I'm sorry, I can't answer at this time."
+
+def remove_thinking_tags(response_content):
+    """Removes the <think>...</think> block from the response string."""
+    regex_pattern = r'<think>[\s\S]*?<\/think>\n*\n*'
+    cleaned_content = re.sub(regex_pattern, '', response_content)
+    return cleaned_content
+
+def remove_thinking_tags1(response_text):
+    """Remove thinking sections (enclosed in <think> tags or similar patterns) from DeepSeek's response."""
+    
+    # Pattern 1: Remove content between <think> tags
+    if '<think>' in response_text and '</think>' in response_text:
+        start = response_text.find('<think>')
+        end = response_text.find('</think>') + len('</think>')
+        response_text = response_text[:start] + response_text[end:]
+    
+    # Pattern 2: Remove any XML-like thinking tags using regex
+    response_text = re.sub(r'<thinking>.*?</thinking>', '', response_text, flags=re.DOTALL)
+    response_text = re.sub(r'<reasoning>.*?</reasoning>', '', response_text, flags=re.DOTALL)
+    response_text = re.sub(r'<thought>.*?</thought>', '', response_text, flags=re.DOTALL)
+    response_text = re.sub(r'<analyse>.*?</analyse>', '', response_text, flags=re.DOTALL)
+    response_text = re.sub(r'<analysis>.*?</analysis>', '', response_text, flags=re.DOTALL)
+    
+    # Clean up any extra whitespace
+    response_text = response_text.strip()
+    
+    return response_text
+        
+def main_chat():
+    
+    # Crear los botones tipo TAB
+    client_ip = get_client_ip()
+    #with st.sidebar:
+    st.sidebar.image("images/logo.PNG", width=150)
+    st.sidebar.info(f"**IP:** `{client_ip}`")
+    
+    # Mostrar información geográfica si está disponible
+    if client_ip and client_ip != "No disponible":
+        ip_info = get_ip_info(client_ip)
+        if ip_info:
+            st.sidebar.caption(f"📍 {ip_info.get('city', '')}, {ip_info.get('country_name', '')}")
+            st.sidebar.caption(f"🌍 {ip_info.get('org', 'ISP no disponible')}")
+    
+    
+    option = st.sidebar.radio("Select an option", ["AI Chatbot", "Image Generator"], key="nav_option")
+        
+    #st.markdown("---")
+    if option == "AI Chatbot":
+        chatbot_page()  # Redirige al chatbot
+    elif option == "Image Generator":
+        image_generation_page_titan(client_ip)  # Redirige a la página de imágenes
+
+    st.sidebar.markdown("---")
+    st.sidebar.markdown(
+        """
+        <div style="text-align: center; color: gray; font-size: 0.8rem;">
+        <p>© 2026 Universidad San Ignacio de Loyola (USIL) | San Ignacio University (SIU)</p>
+        <p>This is a virtual assistance system. Information may be subject to change.</p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+if __name__ == '__main__':
+    main_chat()
