@@ -5,7 +5,59 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.output_parsers import StrOutputParser
 from langchain_aws import ChatBedrock
 from botocore.exceptions import NoCredentialsError
+import re
 
+
+def clean_deepseek_response(text: str) -> str:
+    """
+    Limpia la respuesta de DeepSeek eliminando tokens especiales y formateo no deseado
+    """
+    if not text:
+        return text
+    
+    # Eliminar todos los tokens especiales de DeepSeek
+    tokens_to_remove = [
+        "<|begin_of_sentence|>",
+        "<|end_of_sentence|>",
+        "<|User|>",
+        "<|Assistant|>",
+        "<|system|>",
+        "<|end|>",
+        "<|endoftext|>",
+        "<｜User｜>",  # Versiones con caracteres diferentes
+        "<｜Assistant｜>",
+        "<｜tool▁outputs▁end｜>",  # Otro token común
+        "<｜fim▁end｜>",  # Tokens en chino
+        "<｜fim▁begin｜>## DeepSeek",
+        "<｜DS▁User｜>",  # Token de usuario en chino
+        "<｜DS▁Assistant｜>",  # Token de asistente en chino
+    ]
+    
+    cleaned = text
+    for token in tokens_to_remove:
+        cleaned = cleaned.replace(token, "")
+    
+    # Eliminar líneas que comienzan con "User:" o "Assistant:" 
+    lines = cleaned.split('\n')
+    filtered_lines = []
+    
+    for line in lines:
+        line = line.strip()
+        # Saltar líneas que sean solo tokens o encabezados
+        if line and not line.startswith(('User:', 'Assistant:', 'Human:', 'AI:', 'Respuesta:', 'LucIA:')):
+            filtered_lines.append(line)
+    
+    cleaned = '\n'.join(filtered_lines)
+    
+    # Limpiar espacios extras
+    cleaned = re.sub(r'\n{3,}', '\n\n', cleaned)
+    cleaned = cleaned.strip()
+    
+    # Si la respuesta está vacía después de limpiar, devolver mensaje por defecto
+    if not cleaned:
+        return "Lo siento, no pude generar una respuesta válida."
+    
+    return cleaned
 
 def create_deepseek_chat_chain(bedrock_client, model_id_deepseek: str):
     """Crea una cadena de chat con LangChain para DeepSeek"""
@@ -164,11 +216,13 @@ def render_chatbot(bedrock_client, model_id_deepseek: str) -> None:
                         chat_history
                     )
                     
+                    cleaned_response = clean_deepseek_response(respuesta)
+                    
                     # Mostrar respuesta
-                    st.markdown(respuesta)
+                    st.markdown(cleaned_response)
                     
                     # Agregar respuesta al historial
-                    st.session_state.messages.append({"role": "assistant", "content": respuesta})
+                    st.session_state.messages.append({"role": "assistant", "content": cleaned_response})
                     
                 except NoCredentialsError:
                     error_msg = "❌ AWS credentials could not be found."
