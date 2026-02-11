@@ -202,7 +202,7 @@ def render_image_panel(client_ip, remaining_images):
                     border-radius: 10px; margin-bottom: 20px;">
             <h3 style="margin:0; color: #333;">📊 Límite Diario</h3>
             <div style="font-size: 2em; font-weight: bold; color: {'#28a745' if remaining_images > 3 else '#dc3545'};">
-                {remaining_images}/{MAX_IMAGENES_PER_DAY}
+                {remaining_images}
             </div>
             <p style="margin:5px 0 0 0; color: #666;">imágenes restantes hoy</p>
         </div>
@@ -372,9 +372,9 @@ def main():
             """)
             
             # Botón para ir al chatbot
-            if st.button("🤖 Ir al Chatbot", use_container_width=True, type="primary"):
-                st.session_state.nav_option = "🤖 AI Chatbot"
-                st.rerun()
+            # if st.button("🤖 Ir al Chatbot", use_container_width=True, type="primary"):
+            #     st.session_state.nav_option = "🤖 AI Chatbot"
+            #     st.rerun()
         else:
             # Image Generator
             render_image_generator(
