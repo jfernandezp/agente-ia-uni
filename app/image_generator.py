@@ -46,7 +46,7 @@ def generate_image_from_text(bedrock_client, model_id_titan: str, prompt: str):
             "width": 1024,
             "cfgScale": 8,
             "seed": int(datetime.now().timestamp() % 10000),  # Seed dinámico
-            "quality": "premium",  # Cambiado a premium para mejor calidad
+            "quality": "standard",  # Cambiado a premium para mejor calidad
         },
     }
 
@@ -71,6 +71,7 @@ def render_image_generator(
     check_image_limit_fn,
     increment_image_count_fn,
 ) -> None:
+    
     st.title("🎨 LucIA - AI Image Generator")
     st.info("Transform your ideas into stunning visual art with AI!")
     
@@ -86,18 +87,18 @@ def render_image_generator(
         st.subheader("🛠️ Image Settings")
         
         # Selector de calidad
-        quality = st.selectbox(
-            "Quality",
-            ["standard", "premium"],
-            index=1,
-            help="Premium quality generates higher resolution images"
-        )
+        # quality = st.selectbox(
+        #     "Quality",
+        #     ["standard", "premium"],
+        #     index=1,
+        #     help="Premium quality generates higher resolution images"
+        # )
         
         # Selector de tamaño
         size_options = {
-            "Square (1024x1024)": (1024, 1024),
+            #"Square (1024x1024)": (1024, 1024),
             "Portrait (768x1024)": (768, 1024),
-            "Landscape (1024x768)": (1024, 768),
+            #"Landscape (1024x768)": (1024, 768),
         }
         
         selected_size = st.selectbox(
@@ -172,7 +173,7 @@ def render_image_generator(
             help="Be as descriptive as possible for better results!"
         )
         
-        col1, col2, col3 = st.columns([2, 1, 1])
+        col1, col2 = st.columns([2, 1])
         
         with col1:
             generate_disabled = not check_image_limit_fn(client_ip) if client_ip else False
@@ -216,21 +217,21 @@ def render_image_generator(
                 except Exception as e:
                     st.error(f"❌ Error generating image: {str(e)}")
         
-        with col2:
-            if st.button("💡 Example Prompts", use_container_width=True):
-                examples = [
-                    "A wise owl teaching in a library with floating books",
-                    "Futuristic university with transparent buildings and flying vehicles",
-                    "Graduation ceremony with holographic diplomas in space",
-                    "AI robot and human student collaborating in a lab",
-                    "Ancient wisdom meets modern technology in a study room"
-                ]
-                st.session_state.current_prompt = st.selectbox(
-                    "Select an example",
-                    examples
-                )
+        # with col2:
+        #     if st.button("💡 Example Prompts", use_container_width=True):
+        #         examples = [
+        #             "A wise owl teaching in a library with floating books",
+        #             "Futuristic university with transparent buildings and flying vehicles",
+        #             "Graduation ceremony with holographic diplomas in space",
+        #             "AI robot and human student collaborating in a lab",
+        #             "Ancient wisdom meets modern technology in a study room"
+        #         ]
+        #         st.session_state.current_prompt = st.selectbox(
+        #             "Select an example",
+        #             examples
+        #         )
         
-        with col3:
+        with col2:
             if st.button("🔄 Reset", use_container_width=True):
                 st.session_state.current_prompt = ""
                 st.rerun()

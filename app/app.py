@@ -140,12 +140,12 @@ def main():
     client_ip = get_client_ip()
 
     st.sidebar.image("images/logo.PNG", width=150)
-    st.sidebar.info(f"**IP:** `{client_ip}`")
+    #st.sidebar.info(f"**IP:** `{client_ip}`")
 
-    ip_info = get_ip_info(client_ip)
-    if ip_info:
-        st.sidebar.caption(f"📍 {ip_info.get('city', '')}, {ip_info.get('country_name', '')}")
-        st.sidebar.caption(f"🌍 {ip_info.get('org', 'ISP no disponible')}")
+    # ip_info = get_ip_info(client_ip)
+    # if ip_info:
+    #     st.sidebar.caption(f"📍 {ip_info.get('city', '')}, {ip_info.get('country_name', '')}")
+    #     st.sidebar.caption(f"🌍 {ip_info.get('org', 'ISP no disponible')}")
 
     option = st.sidebar.radio("Select an option", ["AI Chatbot", "Image Generator"], key="nav_option")
     
