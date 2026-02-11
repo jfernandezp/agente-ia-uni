@@ -72,8 +72,8 @@ def render_image_generator(
     increment_image_count_fn,
 ) -> None:
     
-    st.title("🎨 LucIA - AI Image Generator")
-    st.info("Transform your ideas into stunning visual art with AI!")
+    st.title("🎨 Ignacio Connect - AI Image Generator")
+    #st.info("Transform your ideas into stunning visual art with AI!")
     
     # Inicializar estado
     if "generated_images" not in st.session_state:

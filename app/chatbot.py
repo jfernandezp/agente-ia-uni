@@ -44,7 +44,7 @@ def clean_deepseek_response(text: str) -> str:
     for line in lines:
         line = line.strip()
         # Saltar líneas que sean solo tokens o encabezados
-        if line and not line.startswith(('User:', 'Assistant:', 'Human:', 'AI:', 'Respuesta:', 'LucIA:')):
+        if line and not line.startswith(('User:', 'Assistant:', 'Human:', 'AI:', 'Respuesta:', 'Ignacio Connect:')):
             filtered_lines.append(line)
     
     cleaned = '\n'.join(filtered_lines)
@@ -62,7 +62,7 @@ def clean_deepseek_response(text: str) -> str:
 def create_deepseek_chat_chain(bedrock_client, model_id_deepseek: str):
     """Crea una cadena de chat con LangChain para DeepSeek"""
     
-    system_prompt = """Eres LucIA, el Asistente de IA oficial de la Universidad San Ignacio de Loyola (USIL) y San Ignacio University (SIU).
+    system_prompt = """Eres Ignacio Connect, el Asistente de IA oficial de la Universidad San Ignacio de Loyola (USIL) y San Ignacio University (SIU).
 
 Tu función es proporcionar información precisa y actualizada sobre:
 1. Universidad San Ignacio de Loyola (USIL) - Perú
@@ -149,8 +149,8 @@ def get_bedrock_response_deepseek(bedrock_client, model_id_deepseek: str, user_i
 
 
 def render_chatbot(bedrock_client, model_id_deepseek: str) -> None:
-    st.title("🎓 LucIA - Chat Assistant")
-    st.info("**LucIA** is the official virtual assistant of USIL and SIU. Feel free to ask about programs, admissions, and university services!")
+    st.title("🎓 Ignacio Connect - Chat Assistant")
+    #st.info("**LucIA** is the official virtual assistant of USIL and SIU. Feel free to ask about programs, admissions, and university services!")
     
     # Inicializar estado de sesión - SIMPLIFICADO
     if "messages" not in st.session_state:
