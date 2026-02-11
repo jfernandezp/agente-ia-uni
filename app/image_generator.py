@@ -65,7 +65,7 @@ def render_image_generator(
                 height=100,
                 key="img_prompt_view",
             )
-            st.image(img_bytes, caption="Image", use_container_width=True)
+            st.image(img_bytes, caption="Image", width='content')
             ts = datetime.now().strftime("%Y%m%d_%H%M%S")
             st.download_button(
                 label="Download image",
@@ -98,7 +98,7 @@ def render_image_generator(
             if text_out:
                 st.markdown(text_out)
 
-            st.image(img_bytes, caption="Resultado", use_container_width=True)
+            st.image(img_bytes, caption="Resultado", width='content')
 
             ts = datetime.now().strftime("%Y%m%d_%H%M%S")
             st.download_button(
