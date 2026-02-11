@@ -53,13 +53,15 @@ def render_chatbot(bedrock_client, model_id_deepseek: str) -> None:
     st.title("🎓 LucIA - Chat")
     st.info("*LucIA* is the official virtual assistant of the SIU. Type your message!")
 
+    
+
+    if "chat_messages" not in st.session_state:
+        st.session_state.chat_messages = []
+        
     if st.button("🗑️ New chat", key="chat_btn_new"):
-        st.session_state.messages = []
+        st.session_state.chat_messages = []
         st.rerun()
-
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-
+        
     # Pintar historial
     # for msg in st.session_state.messages:
     #     if isinstance(msg, SystemMessage):
@@ -70,7 +72,7 @@ def render_chatbot(bedrock_client, model_id_deepseek: str) -> None:
     #         if hasattr(msg, "content") and msg.content:
     #             st.markdown(msg.content)
     
-    for msg in st.session_state.messages:
+    for msg in st.session_state.chat_messages:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
         
@@ -95,12 +97,12 @@ def render_chatbot(bedrock_client, model_id_deepseek: str) -> None:
 
     # st.session_state.messages.append(HumanMessage(content=pregunta))
     # st.session_state.messages.append(AIMessage(content=respuesta))
-    st.session_state.messages.append({
+    st.session_state.chat_messages.append({
         "role": "user",
         "content": pregunta
     })
 
-    st.session_state.messages.append({
+    st.session_state.chat_messages.append({
         "role": "assistant",
         "content": respuesta
     })

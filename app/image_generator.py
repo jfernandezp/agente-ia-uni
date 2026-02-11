@@ -44,7 +44,6 @@ def render_image_generator(
 ) -> None:
     st.title("🎓 LucIA - Image Generator from Text")
 
-    print(st.session_state.messages)
     if "images" not in st.session_state:
         st.session_state.images = bytes()
 
