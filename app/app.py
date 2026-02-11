@@ -222,7 +222,6 @@ def chatbot_page():
                 full_response = ""
                 
                 try:
-                    
                     full_response = get_bedrock_response_deepseek(pregunta)
                     #print(f"TEST {full_response}")
                     response_placeholder.markdown(full_response)
@@ -251,9 +250,7 @@ def image_generation_page_titan(client_ip):
     
     if "text_content" not in st.session_state:
         st.session_state.text_content = ""
-    
-    
-     
+        
     # Create two columns with equal width
     #col1, col2 = st.columns([3,1])
     if st.button("New Image", key="btn_new_chat"):
@@ -362,7 +359,7 @@ def image_generation_page_vertex_ai(client_ip):
                 placeholder="Example: An astronaut cat floating in space, art nouveau style, vibrant colors, high quality.",
                 
                 )
-                if st.button("Generate Image"):
+                if st.button("Generate Image", key="image_generate"):
                     if check_image_limit(client_ip):
                         if prompt:
                             #image = generate_image_from_text(model, prompt)
