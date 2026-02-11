@@ -208,12 +208,12 @@ def chatbot_page():
         st.markdown("Error")
     
     # Input de usuario
-    pregunta = st.chat_input("Enter message ...", key="chat_input_main")
+    pregunta_chat = st.chat_input("Enter message ...", key="chat_input_main")
     
-    if pregunta:
+    if pregunta_chat:
         # Mostrar y almacenar mensaje del usuario
         with st.chat_message("user"):
-            st.markdown(pregunta)
+            st.markdown(pregunta_chat)
 
         try:
             #Mostrar la respuesta en el interfaz
@@ -222,7 +222,7 @@ def chatbot_page():
                 full_response = ""
                 
                 try:
-                    full_response = get_bedrock_response_deepseek(pregunta)
+                    full_response = get_bedrock_response_deepseek(pregunta_chat)
                     #print(f"TEST {full_response}")
                     response_placeholder.markdown(full_response)
 
@@ -231,7 +231,7 @@ def chatbot_page():
                     return
 
             #Almacenamos el mensaje
-            st.session_state.messages.append(HumanMessage(content=pregunta))
+            st.session_state.messages.append(HumanMessage(content=pregunta_chat))
             st.session_state.messages.append(AIMessage(content=full_response))
 
         except Exception as e:
