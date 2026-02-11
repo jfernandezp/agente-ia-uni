@@ -208,7 +208,7 @@ def chatbot_page():
         st.markdown("Error")
     
     # Input de usuario
-    pregunta = st.chat_input("Enter message", key="chat_input_main")
+    pregunta = st.chat_input("Enter message ...", key="chat_input_main")
     
     if pregunta:
         # Mostrar y almacenar mensaje del usuario
@@ -270,7 +270,7 @@ def image_generation_page_titan(client_ip):
                 data=img_bytes,
                 file_name=f"imagen_{ts}.png",
                 mime="image/png",
-                key="download_image"
+                key="download_image",
             )
         else:
             #with col1:
@@ -280,7 +280,7 @@ def image_generation_page_titan(client_ip):
             placeholder="Example: An astronaut cat floating in space, art nouveau style, vibrant colors, high quality.",
             key="img_prompt"
             )
-            if st.button("Generate Image", key="btn_generate_image"):
+            if st.button("Generate Image", key="btn_gene_image"):
                 if check_image_limit(client_ip):
                     if prompt:
                         #image = generate_image_from_text(model, prompt)
@@ -290,7 +290,7 @@ def image_generation_page_titan(client_ip):
                             st.markdown(text_out)
                             
                         if not images_out:
-                                st.warning("No image appeared. Write a message explicitly requesting an image.")
+                            st.warning("No image appeared. Write a message explicitly requesting an image.")
                         else:
                             #for idx, img_bytes in enumerate(images_out, start=1):
                             st.image(images_out, caption="Resultado", width='stretch')
@@ -640,7 +640,7 @@ def main_chat():
             st.sidebar.caption(f"🌍 {ip_info.get('org', 'ISP no disponible')}")
     
     
-    option = st.sidebar.radio("Select an option", ("AI Chatbot", "Image Generator"), key="nav_option")
+    option = st.sidebar.radio("Select an option", ["AI Chatbot", "Image Generator"], key="nav_option")
         
     #st.markdown("---")
     if option == "AI Chatbot":
