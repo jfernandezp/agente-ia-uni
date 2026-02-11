@@ -18,6 +18,14 @@ from google.oauth2 import service_account
 from google.cloud import bigquery
 import re
 
+# Configuración de página
+st.set_page_config(
+    page_title="LucIA - Asistente SIU",
+    page_icon="🎓",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+    
 
 os.environ["AWS_ACCESS_KEY_ID"] = st.secrets["AWS_ACCESS_KEY_ID"]
 os.environ["AWS_SECRET_ACCESS_KEY"] = st.secrets["AWS_SECRET_ACCESS_KEY"]
@@ -201,7 +209,7 @@ def chatbot_page():
         st.markdown("Error")
     
     # Input de usuario
-    pregunta = st.chat_input("Enter message")
+    pregunta = st.chat_input("Enter message", key="chat_input_main")
     
     if pregunta:
         # Mostrar y almacenar mensaje del usuario
@@ -252,7 +260,7 @@ def image_generation_page_titan(client_ip):
         if len(st.session_state.images) > 0:
             with col1:
                 img_bytes = st.session_state.images
-                st.text_area("📝 Describe the image you want to generate...", st.session_state.text_content, height=100)
+                st.text_area("📝 Describe the image you want to generate...", st.session_state.text_content, height=100, key="img_prompt")
                 st.image(img_bytes, caption="Image", width='stretch')
                 ts = datetime.now().strftime("%Y%m%d_%H%M%S")
                 st.download_button(
@@ -267,7 +275,7 @@ def image_generation_page_titan(client_ip):
                 "📝 Describe the image you want to generate...",
                 height=100,
                 placeholder="Example: An astronaut cat floating in space, art nouveau style, vibrant colors, high quality.",
-                
+                key="img_prompt"
                 )
                 if st.button("Generate Image"):
                     if check_image_limit(client_ip):
@@ -282,7 +290,7 @@ def image_generation_page_titan(client_ip):
                                     st.warning("No image appeared. Write a message explicitly requesting an image.")
                             else:
                                 #for idx, img_bytes in enumerate(images_out, start=1):
-                                st.image(images_out, caption=f"Resultado", width='stretch')
+                                st.image(images_out, caption="Resultado", width='stretch')
 
                                 # Botón de descarga
                                 ts = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -619,14 +627,6 @@ def remove_thinking_tags1(response_text):
         
 def main_chat():
     
-    # Configuración de página
-    st.set_page_config(
-        page_title="LucIA - Asistente SIU",
-        page_icon="🎓",
-        layout="wide",
-        initial_sidebar_state="expanded"
-    )
-    
     # Crear los botones tipo TAB
     client_ip = get_client_ip()
     #with st.sidebar:
@@ -641,7 +641,7 @@ def main_chat():
             st.sidebar.caption(f"🌍 {ip_info.get('org', 'ISP no disponible')}")
     
     
-    option = st.sidebar.radio("Select an option", ("AI Chatbot", "Image Generator"))
+    option = st.sidebar.radio("Select an option", ("AI Chatbot", "Image Generator"), key="nav_option")
         
     #st.markdown("---")
     if option == "AI Chatbot":
