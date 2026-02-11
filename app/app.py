@@ -251,78 +251,79 @@ def image_generation_page_titan(client_ip):
     
     if "text_content" not in st.session_state:
         st.session_state.text_content = ""
-        
-    # Create two columns with equal width
-    col1, col2 = st.columns([3,1])
     
+    
+     
+    # Create two columns with equal width
+    #col1, col2 = st.columns([3,1])
+    if st.button("New Image", key="btn_new_chat"):
+        st.session_state.images = bytes()
+        st.session_state.text_content = ""
+        st.rerun()
+                
     try:
         if len(st.session_state.images) > 0:
-            with col1:
-                img_bytes = st.session_state.images
-                st.text_area("📝 Describe the image you want to generate...", st.session_state.text_content, height=100, key="img_prompt")
-                st.image(img_bytes, caption="Image", width='stretch')
-                ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-                st.download_button(
-                    label=f"Download image",
-                    data=img_bytes,
-                    file_name=f"imagen_{ts}.png",
-                    mime="image/png",
-                    key="download_image"
-                )
+            #with col1:
+            img_bytes = st.session_state.images
+            st.text_area("📝 Describe the image you want to generate...", st.session_state.text_content, height=100, key="img_prompt")
+            st.image(img_bytes, caption="Image", width='stretch')
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            st.download_button(
+                label=f"Download image",
+                data=img_bytes,
+                file_name=f"imagen_{ts}.png",
+                mime="image/png",
+                key="download_image"
+            )
         else:
-            with col1:
-                prompt = st.text_area(
-                "📝 Describe the image you want to generate...",
-                height=100,
-                placeholder="Example: An astronaut cat floating in space, art nouveau style, vibrant colors, high quality.",
-                key="img_prompt"
-                )
-                if st.button("Generate Image", key="btn_generate_image"):
-                    if check_image_limit(client_ip):
-                        if prompt:
-                            #image = generate_image_from_text(model, prompt)
-                            text_out, images_out = generate_image_from_text(AWS_BEDROCK_AI_MODELO_TITAN, prompt)
+            #with col1:
+            prompt = st.text_area(
+            "📝 Describe the image you want to generate...",
+            height=100,
+            placeholder="Example: An astronaut cat floating in space, art nouveau style, vibrant colors, high quality.",
+            key="img_prompt"
+            )
+            if st.button("Generate Image", key="btn_generate_image"):
+                if check_image_limit(client_ip):
+                    if prompt:
+                        #image = generate_image_from_text(model, prompt)
+                        text_out, images_out = generate_image_from_text(AWS_BEDROCK_AI_MODELO_TITAN, prompt)
+                        
+                        if text_out:
+                            st.markdown(text_out)
                             
-                            if text_out:
-                                st.markdown(text_out)
-                                
-                            if not images_out:
-                                    st.warning("No image appeared. Write a message explicitly requesting an image.")
-                            else:
-                                #for idx, img_bytes in enumerate(images_out, start=1):
-                                st.image(images_out, caption="Resultado", width='stretch')
-
-                                # Botón de descarga
-                                ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-                                st.download_button(
-                                    label=f"Download image",
-                                    data=images_out,
-                                    file_name=f"imagen_{ts}.png",
-                                    mime="image/png",
-                                    key="btn_download_img"
-                                )
-                                increment_image_count(client_ip)
-                            # st.session_state.images.append(
-                            #     {"role": "assistant", "text": text_out, "imagenes": images_out}
-                            # )
-                            st.session_state.images = images_out
-                            st.session_state.text_content = prompt
+                        if not images_out:
+                                st.warning("No image appeared. Write a message explicitly requesting an image.")
                         else:
-                            st.error("Enter a description to generate the image.")
+                            #for idx, img_bytes in enumerate(images_out, start=1):
+                            st.image(images_out, caption="Resultado", width='stretch')
+
+                            # Botón de descarga
+                            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+                            st.download_button(
+                                label=f"Download image",
+                                data=images_out,
+                                file_name=f"imagen_{ts}.png",
+                                mime="image/png",
+                                key="btn_download_img"
+                            )
+                            increment_image_count(client_ip)
+                        # st.session_state.images.append(
+                        #     {"role": "assistant", "text": text_out, "imagenes": images_out}
+                        # )
+                        st.session_state.images = images_out
+                        st.session_state.text_content = prompt
                     else:
-                        st.info("You've reached today's image limit. Please try again tomorrow.")
+                        st.error("Enter a description to generate the image.")
+                else:
+                    st.info("You've reached today's image limit. Please try again tomorrow.")
     except Exception as e:
         exc_type, exc_obj, tb = sys.exc_info()
         line_number = tb.tb_lineno
         st.markdown(f"Error:  {str(e)}; line_number: {line_number }")
 
-    with col2:
-        if st.button("New Image", key="btn_new_chat"):
-            st.session_state.images = bytes()
-            st.session_state.text_content = ""
-            st.rerun()
-            
-            
+    #with col2:
+    
 # Función para mostrar la página de generación de imágenes
 def image_generation_page_vertex_ai(client_ip):
 
