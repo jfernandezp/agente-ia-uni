@@ -1,6 +1,14 @@
+import streamlit as st
+
+# Configuración de página
+st.set_page_config(
+    page_title="LucIA - Asistente SIU",
+    page_icon="🎓",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
-import streamlit as st
 import os
 import boto3
 from botocore.exceptions import NoCredentialsError
@@ -17,15 +25,6 @@ import sys
 from google.oauth2 import service_account
 from google.cloud import bigquery
 import re
-
-# Configuración de página
-st.set_page_config(
-    page_title="LucIA - Asistente SIU",
-    page_icon="🎓",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
-    
 
 os.environ["AWS_ACCESS_KEY_ID"] = st.secrets["AWS_ACCESS_KEY_ID"]
 os.environ["AWS_SECRET_ACCESS_KEY"] = st.secrets["AWS_SECRET_ACCESS_KEY"]
@@ -268,6 +267,7 @@ def image_generation_page_titan(client_ip):
                     data=img_bytes,
                     file_name=f"imagen_{ts}.png",
                     mime="image/png",
+                    key="download_image"
                 )
         else:
             with col1:
@@ -277,7 +277,7 @@ def image_generation_page_titan(client_ip):
                 placeholder="Example: An astronaut cat floating in space, art nouveau style, vibrant colors, high quality.",
                 key="img_prompt"
                 )
-                if st.button("Generate Image"):
+                if st.button("Generate Image", key="btn_generate_image"):
                     if check_image_limit(client_ip):
                         if prompt:
                             #image = generate_image_from_text(model, prompt)
@@ -299,6 +299,7 @@ def image_generation_page_titan(client_ip):
                                     data=images_out,
                                     file_name=f"imagen_{ts}.png",
                                     mime="image/png",
+                                    key="btn_download_img"
                                 )
                                 increment_image_count(client_ip)
                             # st.session_state.images.append(
@@ -316,7 +317,7 @@ def image_generation_page_titan(client_ip):
         st.markdown(f"Error:  {str(e)}; line_number: {line_number }")
 
     with col2:
-        if st.button("New Image"):
+        if st.button("New Image", key="btn_new_chat"):
             st.session_state.images = bytes()
             st.session_state.text_content = ""
             st.rerun()
