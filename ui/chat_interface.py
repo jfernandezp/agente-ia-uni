@@ -95,7 +95,7 @@ def render_tea_chat_interface(orchestrator: ConversationOrchestrator):
     # TEA control panel (SIMPLE)
     with st.sidebar:
         
-        #st.sidebar.image("images\image.png", width=150)
+        #st.sidebar.image("images/image.png", width=150)
         # st.header("⚙️ Communication options")
         
         # # Verbosity selector - ONE option at a time

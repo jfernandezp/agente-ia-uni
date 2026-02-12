@@ -22,7 +22,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-st.sidebar.image("images\image.png", width=220)
+st.sidebar.image("images/image.png", width=220)
  
 from core.orchestrator import ConversationOrchestrator
 from ui.chat_interface import render_tea_chat_interface
