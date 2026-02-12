@@ -137,7 +137,7 @@ def render_tea_chat_interface(orchestrator: ConversationOrchestrator):
         st.header("📋 Current session")
         stats = orchestrator.get_session_stats(client_ip)
         #st.caption(f"Messages: {stats.get('message_count', 0)}")
-        #st.caption(f"IP: {client_ip[:15]}..." if len(client_ip) > 15 else f"IP: {client_ip}")
+        st.caption(f"IP: {client_ip[:15]}..." if len(client_ip) > 15 else f"IP: {client_ip}")
         
         # Help button
         with st.expander("❓ How to use this assistant?"):
